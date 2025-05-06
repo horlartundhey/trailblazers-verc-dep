@@ -55,15 +55,15 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Trailblazer dashboard' });
 });
 
-app.get('/debug-uploads', (req, res) => {
-  const uploadsPath = path.join(__dirname, 'uploads/events');
-  fs.readdir(uploadsPath, (err, files) => {
-    if (err) {
-      return res.status(500).send(`Error reading directory: ${err.message}`);
-    }
-    res.json({ files });
-  });
-});
+// app.get('/debug-uploads', (req, res) => {
+//   const uploadsPath = path.join(__dirname, 'uploads/events');
+//   fs.readdir(uploadsPath, (err, files) => {
+//     if (err) {
+//       return res.status(500).send(`Error reading directory: ${err.message}`);
+//     }
+//     res.json({ files });
+//   });
+// });
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -75,9 +75,9 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// const PORT = process.env.PORT || 5000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });
 
 module.exports = app;
