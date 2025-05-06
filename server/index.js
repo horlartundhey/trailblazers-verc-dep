@@ -10,15 +10,15 @@ const path = require('path');
 dotenv.config();
 
 // Import database connection
-const connectDB = require('../config/db');
+const connectDB = require('./config/db');
 
 // Import routes
-const authRoutes = require('../routes/auth.routes');
-const userRoutes = require('../routes/user.routes');
-const eventRoutes = require('../routes/event.routes');
-const messageRoutes = require('../routes/message.routes');
-const paymentRoutes = require('../routes/payment.routes');
-const galleryRoutes = require('../routes/gallery.routes');
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
+const eventRoutes = require('./routes/event.routes');
+const messageRoutes = require('./routes/message.routes');
+const paymentRoutes = require('./routes/payment.routes');
+const galleryRoutes = require('./routes/gallery.routes');
 
 
 // Initialize express app
