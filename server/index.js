@@ -51,7 +51,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/gallery', galleryRoutes);
 
 // Root route
-app.get('/hello', (req, res) => {
+app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Trailblazer dashboard' });
 });
 
