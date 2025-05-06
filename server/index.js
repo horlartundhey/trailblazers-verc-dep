@@ -20,14 +20,23 @@ const messageRoutes = require('./routes/message.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const galleryRoutes = require('./routes/gallery.routes');
 
-
 // Initialize express app
 const app = express();
 
 // Connect to MongoDB
 connectDB();
 
-// Middleware
+// CORS configuration - Must be before other middleware
+const corsOptions = {
+  origin: ['https://trailblazers-verc-client.vercel.app'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
+
+// Other middleware
 app.use(helmet()); // Security headers
 app.use(morgan('dev')); // Logging
 
@@ -38,10 +47,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   }
 }));
 
-app.use(cors({
-  origin: ['https://trailblazers-verc-client.vercel.app'],
-  credentials: true
-}));
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
@@ -58,34 +63,11 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Trailblazer dashboard' });
 });
 
-// app.get('/debug-uploads', (req, res) => {
-//   const uploadsPath = path.join(__dirname, 'uploads/events');
-//   fs.readdir(uploadsPath, (err, files) => {
-//     if (err) {
-//       return res.status(500).send(`Error reading directory: ${err.message}`);
-//     }
-//     res.json({ files });
-//   });
-// });
 // Error handling middleware
-// app.use((err, req, res, next) => {
-//   console.error(err.stack);
-//   res.status(500).json({
-//     success: false,
-//     message: 'Server Error',
-//     error: process.env.NODE_ENV === 'development' ? err.message : undefined
-//   });
-// });
-
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// Start server
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
-
-// module.exports = app;
+// Export the app (for serverless environments like Vercel)
+module.exports = app;
