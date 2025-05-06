@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "npm start --prefix server",
+    "client": "npm start --prefix client"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-legacy": "^6.0.0",
+    "concurrently": "^9.1.0"
+  },
+  "dependencies": {
+    "framer-motion": "^11.11.17",
+    "lodash": "^4.17.21"
+  }
+}
