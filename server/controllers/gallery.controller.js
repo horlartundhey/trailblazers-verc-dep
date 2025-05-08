@@ -31,27 +31,37 @@ const uploadImage = asyncHandler(async (req, res) => {
     throw new Error('Invalid category');
   }
 
-  // Upload to Cloudinary
-  const result = await cloudinary.uploader.upload(file.path, {
-    folder: 'TRAILBLAZER gallery',
-  });
+  try {
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: 'trailblazer/gallery',
+      resource_type: 'auto',
+    });
 
-  // Remove temporary file
-  fs.unlinkSync(file.path);
+    // Remove temporary file
+    fs.unlinkSync(file.path);
 
-  // Save to database
-  const galleryImage = await Gallery.create({
-    src: result.secure_url,
-    category,
-    caption,
-    collection,
-    createdBy: req.user._id,
-  });
+    // Save to database
+    const galleryImage = await Gallery.create({
+      src: result.secure_url,
+      category,
+      caption,
+      collection,
+      createdBy: req.user._id,
+    });
 
-  res.status(201).json({
-    success: true,
-    data: galleryImage,
-  });
+    res.status(201).json({
+      success: true,
+      data: galleryImage,
+    });
+  } catch (error) {
+    // Clean up temporary file if it exists
+    if (file.path && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+    res.status(500);
+    throw new Error('Error uploading image: ' + error.message);
+  }
 });
 
 // @desc    Get all gallery images

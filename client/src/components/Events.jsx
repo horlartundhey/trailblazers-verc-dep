@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Calendar, MapPin, Clock, X } from 'lucide-react';
-import { Link } from 'react-router-dom'; // Import Link for navigation
+import { Link } from 'react-router-dom';
 import API from '../utils/api';
-
-// Extract the base URL from the API utility (assumes API is an Axios instance)
-const BACKEND_BASE_URL = API.defaults.baseURL || 'http://localhost:5000'; // Fallback to localhost:5000 if not set
 
 const Events = ({ onRegister, userId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [events, setEvents] = useState([]); // State to hold fetched events
+  const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [formData, setFormData] = useState({
@@ -21,7 +18,6 @@ const Events = ({ onRegister, userId }) => {
   const [registrationStatus, setRegistrationStatus] = useState(null);
   const { user } = useSelector(state => state.auth);
 
-  // Fetch events on component mount
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
@@ -29,24 +25,29 @@ const Events = ({ onRegister, userId }) => {
       try {
         let response;
         if (user) {
-          // Fetch private events for authenticated users
           response = await API.get('/api/events');
         } else {
-          // Fetch public events for unauthenticated users
-          response = await API.get('/api/events/public/events'); // Fixed endpoint
+          response = await API.get('/api/public/events');
         }
-        const fetchedEvents = response.data.data || [];
-        setEvents(fetchedEvents);
+        
+        if (response.data.success) {
+          const fetchedEvents = response.data.data || [];
+          // Sort events by date
+          const sortedEvents = fetchedEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+          setEvents(sortedEvents);
+        } else {
+          throw new Error(response.data.message || 'Failed to fetch events');
+        }
       } catch (err) {
         console.error('Error fetching events:', err);
         setError('Failed to fetch events. Please try again later.');
-        setEvents([]); // Set empty array to allow rendering without crashing
+        setEvents([]);
       } finally {
         setLoading(false);
       }
     };
     fetchEvents();
-  }, [user]); // Re-fetch if user authentication status changes
+  }, [user]);
 
   const handleRegisterClick = (event) => {
     setSelectedEvent(event);
@@ -80,11 +81,7 @@ const Events = ({ onRegister, userId }) => {
           message: 'Registration successful! Check your status in the dashboard.',
         });
       } else {
-        const response = await API.post(`/api/events/${selectedEvent._id}/guest-register`, {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone || '',
-        });
+        const response = await API.post(`/api/events/${selectedEvent._id}/guest-register`, formData);
         setRegistrationStatus({
           success: true,
           message: `Registration ${response.data.data.status === 'Confirmed' ? 'confirmed!' : 'added to waitlist!'}`,
@@ -100,41 +97,28 @@ const Events = ({ onRegister, userId }) => {
   };
 
   const isUserRegistered = (event) => {
+    if (!user || !userId) return false;
     return event.registeredMembers?.some(
-      m => m.memberId && m.memberId.toString() === userId?.toString()
+      m => m.memberId && m.memberId.toString() === userId.toString()
     );
   };
 
   const getRegistrationStatus = (event) => {
+    if (!user || !userId) return 'Register';
     const registration = event.registeredMembers?.find(
-      m => m.memberId && m.memberId.toString() === userId?.toString()
+      m => m.memberId && m.memberId.toString() === userId.toString()
     );
     if (!registration) return 'Register';
     return registration.status === 'Confirmed' ? 'Confirmed' : registration.status;
   };
 
-  // Filter for upcoming events with timezone normalization
-  const upcomingEvents = Array.isArray(events)
-    ? events
-        .filter(event => {
-          const eventDate = new Date(event.date);
-          const currentDate = new Date();
-          // Validate date parsing
-          if (isNaN(eventDate.getTime())) {
-            console.error(`Invalid date for event: ${event.name}, Date: ${event.date}`);
-            return false;
-          }
-          // Normalize to UTC for comparison
-          const eventDateUTC = new Date(eventDate.toISOString());
-          const currentDateUTC = new Date(currentDate.toISOString());
-          const isFuture = eventDateUTC > currentDateUTC;
-          console.log(
-            `Filtering event: ${event.name}, Date: ${event.date}, Is Future: ${isFuture}`
-          );
-          return isFuture;
-        })
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-    : [];
+  // Filter for upcoming events
+  const upcomingEvents = events.filter(event => {
+    const eventDate = new Date(event.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return eventDate >= today;
+  });
 
   if (loading) return <div className="text-center py-16">Loading events...</div>;
   if (error) return <div className="text-center py-16 text-red-600">{error}</div>;
@@ -144,7 +128,7 @@ const Events = ({ onRegister, userId }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-2xl font-semibold text-gray-900">Upcoming Events</h2>
-          <p className="mt-2 text-sm text-gray-500">Events in your region and campus</p>
+          <p className="mt-2 text-sm text-gray-500">Join our upcoming events</p>
         </div>
 
         {upcomingEvents.length === 0 ? (
@@ -174,7 +158,7 @@ const Events = ({ onRegister, userId }) => {
               >
                 <div className="h-48 overflow-hidden rounded-lg mb-4">
                   <img
-                    src={event.image ? `${BACKEND_BASE_URL}${event.image}` : '/images/event-placeholder.jpg'}
+                    src={event.image || '/images/event-placeholder.jpg'}
                     alt={event.name}
                     className="w-full h-full object-cover"
                   />
@@ -200,7 +184,6 @@ const Events = ({ onRegister, userId }) => {
                 <p className="text-gray-700 mb-4 line-clamp-3">{event.description}</p>
                 <div className="flex items-center justify-between">
                   {user ? (
-                    // For authenticated users: Show spots and Register button
                     <>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -227,10 +210,9 @@ const Events = ({ onRegister, userId }) => {
                       </button>
                     </>
                   ) : (
-                    // For non-authenticated users: Show notice and Register Member button
                     <div className="flex flex-col items-end">
                       <p className="text-sm text-gray-600 mb-2">
-                        You can only register if you are a member.
+                        Sign up as a member to register for events
                       </p>
                       <Link
                         to="/register"
@@ -246,7 +228,6 @@ const Events = ({ onRegister, userId }) => {
           </div>
         )}
 
-        {/* Registration Modal - Only render for authenticated users */}
         {user && showModal && selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">

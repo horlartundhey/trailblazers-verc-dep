@@ -11,7 +11,7 @@ if (!fs.existsSync(uploadDir)) {
 // Set up storage engine for multer with more robust filename generation
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    cb(null, 'uploads/events');
+    cb(null, uploadDir);
   },
   filename: function(req, file, cb) {
     // Generate a unique filename to prevent overwriting
@@ -36,7 +36,7 @@ const fileFilter = (req, file, cb) => {
 const uploadEventImage = multer({
   storage: storage,
   limits: { 
-    fileSize: 5 * 1024 * 1024, // Increased to 5MB
+    fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 1 // Limit to single file upload
   },
   fileFilter: fileFilter
@@ -48,7 +48,6 @@ exports.handleEventImageUpload = (req, res, next) => {
     if (err) {
       // Handle specific multer errors
       if (err instanceof multer.MulterError) {
-        // A Multer error occurred when uploading
         return res.status(400).json({
           success: false,
           message: err.code === 'LIMIT_FILE_SIZE' 
@@ -56,7 +55,6 @@ exports.handleEventImageUpload = (req, res, next) => {
             : 'Upload error occurred'
         });
       } else {
-        // An unknown error occurred
         return res.status(400).json({
           success: false,
           message: err.message || 'File upload failed'
@@ -66,8 +64,8 @@ exports.handleEventImageUpload = (req, res, next) => {
     
     // If file is uploaded, add the path to the request body
     if (req.file) {
-      // Generate a URL-friendly path
-      req.body.image = `/uploads/events/${req.file.filename}`;
+      // Use absolute path for the image URL
+      req.body.image = path.join('/uploads/events', req.file.filename).replace(/\\/g, '/');
     }
     
     next();

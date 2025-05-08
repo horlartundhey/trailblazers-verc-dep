@@ -199,20 +199,27 @@ exports.completeRegistration = async (req, res) => {
       });
     }
     
+    // Update registration status
     user.registrationStatus = 'Completed';
     await user.save();
+
+    // Generate a new token with updated status
+    const token = generateToken(user._id, user.role);
     
     res.json({
       success: true,
       data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        region: user.region,
-        campus: user.campus,
-        memberCode: user.memberCode,
-        registrationStatus: user.registrationStatus
+        token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          region: user.region,
+          campus: user.campus,
+          memberCode: user.memberCode,
+          registrationStatus: user.registrationStatus
+        }
       },
       message: 'Registration completed successfully'
     });

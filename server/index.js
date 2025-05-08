@@ -28,7 +28,7 @@ connectDB();
 
 // CORS configuration - Must be before other middleware
 const corsOptions = {
-  origin: ['https://trailblazers-verc-client.vercel.app'],
+  origin: ['https://trailblazers-verc-client.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -37,15 +37,27 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Other middleware
-app.use(helmet()); // Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Security headers with cross-origin resource policy
 app.use(morgan('dev')); // Logging
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+// Ensure upload directories exist
+const uploadDirs = [
+  path.join(__dirname, 'uploads'),
+  path.join(__dirname, 'uploads/events'),
+  path.join(__dirname, 'uploads/gallery'),
+  path.join(__dirname, 'uploads/profile-pictures')
+];
+
+uploadDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-}));
+});
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
@@ -66,7 +78,10 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ 
+    success: false,
+    message: err.message || 'Something went wrong!'
+  });
 });
 
 // Export the app (for serverless environments like Vercel)

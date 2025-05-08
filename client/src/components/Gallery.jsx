@@ -1,10 +1,10 @@
 // components/Gallery.js
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import axios from 'axios';
+import API from '../utils/api';
 
 const Gallery = () => {
-  const [galleryImages, setGalleryImages] = useState([]); // Initialize as empty array
+  const [galleryImages, setGalleryImages] = useState([]);
   const [categories] = useState(['all', 'worship', 'baptism', 'community', 'youth', 'missions']);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedCollection, setSelectedCollection] = useState(null);
@@ -17,14 +17,18 @@ const Gallery = () => {
     const fetchImages = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/gallery');
-        setGalleryImages(response.data.data || []); // Fallback to empty array
-        setLoading(false);
+        const response = await API.get('/api/gallery');
+        if (response.data.success) {
+          setGalleryImages(response.data.data || []);
+        } else {
+          throw new Error(response.data.message || 'Failed to fetch gallery images');
+        }
       } catch (error) {
-        setError('Failed to fetch gallery images. Please check if the server is running.');
-        setGalleryImages([]); // Ensure galleryImages is an array
-        setLoading(false);
+        setError('Failed to fetch gallery images. Please try again later.');
         console.error('Failed to fetch gallery images:', error);
+        setGalleryImages([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchImages();
@@ -34,22 +38,24 @@ const Gallery = () => {
     ? galleryImages
     : galleryImages.filter(img => img.category === activeCategory);
 
-  const collections = filteredImages
-    ? [...new Set(filteredImages.map(img => img.collection))]
-    : [];
+  const collections = [...new Set(filteredImages.map(img => img.collection))];
 
   const openCollectionModal = async (collection) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/gallery/collection/${encodeURIComponent(collection)}`);
-      setCollectionImages(response.data.data || []);
-      setSelectedCollection(collection);
-      setIsModalOpen(true);
-      setLoading(false);
+      const response = await API.get(`/api/gallery/collection/${encodeURIComponent(collection)}`);
+      if (response.data.success) {
+        setCollectionImages(response.data.data || []);
+        setSelectedCollection(collection);
+        setIsModalOpen(true);
+      } else {
+        throw new Error(response.data.message || 'Failed to load collection');
+      }
     } catch (error) {
       setError('Failed to load collection');
-      setLoading(false);
       console.error('Failed to load collection:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,11 +66,19 @@ const Gallery = () => {
   };
 
   if (loading && galleryImages.length === 0) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
+    return (
+      <div className="min-h-[400px] flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-800"></div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500 text-center">{error}</div>;
+    return (
+      <div className="min-h-[400px] flex justify-center items-center">
+        <div className="text-red-500 text-center">{error}</div>
+      </div>
+    );
   }
 
   return (
@@ -85,9 +99,11 @@ const Gallery = () => {
             <button
               key={category}
               onClick={() => setActiveCategory(category)}
-              className={`px-4 py-2 rounded-full capitalize ${activeCategory === category
-                ? 'bg-purple-800 text-white'
-                : 'bg-white text-purple-800 border border-purple-800 hover:bg-purple-100'}`}
+              className={`px-4 py-2 rounded-full capitalize ${
+                activeCategory === category
+                  ? 'bg-purple-800 text-white'
+                  : 'bg-white text-purple-800 border border-purple-800 hover:bg-purple-100'
+              }`}
             >
               {category}
             </button>
@@ -95,7 +111,9 @@ const Gallery = () => {
         </div>
 
         {collections.length === 0 ? (
-          <p className="text-center text-gray-500">No collections available</p>
+          <div className="text-center py-12">
+            <p className="text-gray-500">No images available for this category</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {collections.map(collection => {
@@ -107,7 +125,7 @@ const Gallery = () => {
                   onClick={() => openCollectionModal(collection)}
                 >
                   <img
-                    src={firstImage?.src || '/images/placeholder.jpg'}
+                    src={firstImage?.src || '/placeholder-gallery.jpg'}
                     alt={collection}
                     className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -128,10 +146,12 @@ const Gallery = () => {
             >
               <X className="h-8 w-8" />
             </button>
-            <div className="max-w-4xl w-full">
+            <div className="max-w-7xl w-full">
               <h3 className="text-white text-2xl mb-4">{selectedCollection}</h3>
               {loading ? (
-                <div className="flex justify-center items-center h-64">Loading...</div>
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+                </div>
               ) : collectionImages.length === 0 ? (
                 <p className="text-white text-center">No images in this collection</p>
               ) : (
