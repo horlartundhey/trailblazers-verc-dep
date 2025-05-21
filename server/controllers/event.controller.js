@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
 const fs = require('fs');
+const cloudinary = require('../utils/cloudinary');
 
 // @desc    Create a new event
 // @route   POST /api/events
@@ -10,55 +11,75 @@ const fs = require('fs');
 exports.createEvent = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    if (req.file) {
+    if (req.file && req.file.path) {
       fs.unlinkSync(req.file.path);
     }
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
   try {
-    const { name, description, date, location, capacity, regions, campuses, image } = req.body;
+    const { name, description, date, location, capacity, regions, campuses } = req.body;
+    let imageUrl = null;
+
+    // Handle image upload
+    if (req.file) {
+      if (process.env.NODE_ENV === 'production') {
+        // Upload buffer to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload_stream(
+          { folder: 'trailblazer/events', resource_type: 'auto' },
+          (error, result) => {
+            if (error) throw error;
+            imageUrl = result.secure_url;
+          }
+        );
+        // Use a Promise to wait for upload_stream
+        await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'trailblazer/events', resource_type: 'auto' },
+            (error, result) => {
+              if (error) return reject(error);
+              imageUrl = result.secure_url;
+              resolve();
+            }
+          );
+          stream.end(req.file.buffer);
+        });
+      } else {
+        // In dev, use local file path
+        imageUrl = req.body.image || null;
+      }
+    }
 
     // Fetch all unique regions from users collection
     const allUsers = await User.find();
-    const allRegions = [...new Set(allUsers
-      .filter(user => user.region)
-      .map(user => user.region))];
-      
-    // Fetch all unique campuses from users collection
-    const allCampuses = [...new Set(allUsers
-      .filter(user => user.campus)
-      .map(user => user.campus))];
+    const allRegions = [...new Set(allUsers.filter(user => user.region).map(user => user.region))];
+    const allCampuses = [...new Set(allUsers.filter(user => user.campus).map(user => user.campus))];
+    const finalRegions = regions && regions.length > 0 ? regions : allRegions;
+    const finalCampuses = campuses && campuses.length > 0 ? campuses : allCampuses;
 
-    // Use provided regions or default to all regions
-    const finalRegions = regions && regions.length > 0 
-      ? regions 
-      : allRegions;
-
-    // Use provided campuses or default to all campuses
-    const finalCampuses = campuses && campuses.length > 0
-      ? campuses
-      : allCampuses;
-
-    // Create event with all regions/campuses if none selected
     const event = await Event.create({
       name,
       description,
       date,
       location,
       capacity,
-      image: image || null,
+      image: imageUrl,
       regions: finalRegions,
       campuses: finalCampuses,
       createdBy: req.user._id
     });
+
+    // Clean up local file in dev
+    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
+      fs.unlinkSync(req.file.path);
+    }
 
     res.status(201).json({
       success: true,
       data: event
     });
   } catch (error) {
-    if (req.file) {
+    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
       fs.unlinkSync(req.file.path);
     }
     console.error('Create event error:', error);
@@ -230,19 +251,21 @@ exports.getEventById = async (req, res) => {
 exports.updateEvent = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
+    }
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
   try {
     let event = await Event.findById(req.params.id);
-    
     if (!event) {
       return res.status(404).json({
         success: false,
         message: 'Event not found'
       });
     }
-    
+
     // Check if leader is the creator of this event
     if (req.user.role === 'Leader' && event.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -250,9 +273,29 @@ exports.updateEvent = async (req, res) => {
         message: 'Only the creator of this event can update it'
       });
     }
-    
-    const { name, description, date, location, capacity, regions, campuses, image } = req.body;
-    
+
+    const { name, description, date, location, capacity, regions, campuses } = req.body;
+    let imageUrl = event.image;
+
+    // Handle image upload
+    if (req.file) {
+      if (process.env.NODE_ENV === 'production') {
+        await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'trailblazer/events', resource_type: 'auto' },
+            (error, result) => {
+              if (error) return reject(error);
+              imageUrl = result.secure_url;
+              resolve();
+            }
+          );
+          stream.end(req.file.buffer);
+        });
+      } else {
+        imageUrl = req.body.image || event.image;
+      }
+    }
+
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
       {
@@ -261,19 +304,27 @@ exports.updateEvent = async (req, res) => {
         date,
         location,
         capacity,
-        image,
-        regions: regions || [],
-        campuses: campuses || [],
+        image: imageUrl,
+        regions: regions || event.regions,
+        campuses: campuses || event.campuses,
         updatedAt: Date.now()
       },
       { new: true, runValidators: true }
     );
-    
+
+    // Clean up local file in dev
+    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
+      fs.unlinkSync(req.file.path);
+    }
+
     res.json({
       success: true,
       data: updatedEvent
     });
   } catch (error) {
+    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
+      fs.unlinkSync(req.file.path);
+    }
     console.error('Update event error:', error);
     res.status(500).json({
       success: false,
