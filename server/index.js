@@ -54,19 +54,21 @@ app.use(helmet({
 })); // Security headers with cross-origin resource policy
 app.use(morgan('dev')); // Logging
 
-// Ensure upload directories exist
-const uploadDirs = [
-  path.join(__dirname, 'uploads'),
-  path.join(__dirname, 'uploads/events'),
-  path.join(__dirname, 'uploads/gallery'),
-  path.join(__dirname, 'uploads/profile-pictures')
-];
+// Ensure upload directories exist (skip on Vercel/production)
+if (process.env.NODE_ENV !== 'production') {
+  const uploadDirs = [
+    path.join(__dirname, 'uploads'),
+    path.join(__dirname, 'uploads/events'),
+    path.join(__dirname, 'uploads/gallery'),
+    path.join(__dirname, 'uploads/profile-pictures')
+  ];
 
-uploadDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+  uploadDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
