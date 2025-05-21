@@ -36,6 +36,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Add this before any other middleware to ensure CORS headers are always set (especially for Vercel serverless)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://trailblazers-verc-client.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 // Other middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
