@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import API from '../../utils/api';
 import { getCurrentUser } from '../../redux/slices/authSlice';
 
 const CompleteRegistration = () => {
@@ -24,7 +24,7 @@ const CompleteRegistration = () => {
       setError(null);
       
       // Call the API to complete registration
-      await axios.put('/api/auth/complete-registration');
+      await API.put('/api/auth/complete-registration');
       
       // Refresh user data
       await dispatch(getCurrentUser()).unwrap();
@@ -32,6 +32,7 @@ const CompleteRegistration = () => {
       // Redirect to member dashboard
       navigate('/member/dashboard');
     } catch (error) {
+      console.error('Complete registration error:', error.response?.data || error);
       setError(error.response?.data?.message || 'Failed to complete registration');
     } finally {
       setLoading(false);
