@@ -29,9 +29,10 @@ const Events = ({ onRegister, userId }) => {
         } else {
           response = await API.get('/api/public/events');
         }
-        
+        console.log('API response:', response);
         if (response.data.success) {
           const fetchedEvents = response.data.data || [];
+          console.log('Fetched events:', fetchedEvents);
           // Sort events by date
           const sortedEvents = fetchedEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
           setEvents(sortedEvents);
@@ -39,8 +40,11 @@ const Events = ({ onRegister, userId }) => {
           throw new Error(response.data.message || 'Failed to fetch events');
         }
       } catch (err) {
-        console.error('Error fetching events:', err);
-        setError('Failed to fetch events. Please try again later.');
+        console.error('Error fetching events:', err, err.response?.data);
+        setError(
+          err.response?.data?.message ||
+          'Failed to fetch events. Please try again later.'
+        );
         setEvents([]);
       } finally {
         setLoading(false);
