@@ -3,7 +3,7 @@ const { check } = require('express-validator');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
 const { protect, authorize, isLeaderForRegionCampus } = require('../middleware/auth.middleware');
-const upload = require('../utils/upload');
+const { upload } = require('../middleware/user.middleware');
 
 
 router.get('/regions-and-campuses', userController.getRegionsAndCampuses);
@@ -100,26 +100,7 @@ router.patch(
 router.patch(
   '/me/profile-picture',
   protect,
-  (req, res, next) => {
-    upload.single('profilePicture')(req, res, (err) => {
-      if (err) {
-        console.error('Multer upload error:', err);
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(413).json({
-            success: false,
-            message: 'File too large',
-            error: `File size should be less than ${upload.limits.fileSize / (1024 * 1024)}MB`
-          });
-        }
-        return res.status(400).json({
-          success: false,
-          message: 'File upload error',
-          error: err.message
-        });
-      }
-      next();
-    });
-  },
+  upload.single('profilePicture'),
   userController.updateProfilePicture
 );
 

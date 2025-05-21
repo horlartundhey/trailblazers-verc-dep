@@ -32,18 +32,37 @@ const uploadImage = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: 'trailblazer/gallery',
-      resource_type: 'auto',
-    });
+    let imageUrl;
 
-    // Remove temporary file
-    fs.unlinkSync(file.path);
+    if (process.env.NODE_ENV === 'production') {
+      // Upload buffer to Cloudinary in production
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'trailblazer/gallery', resource_type: 'auto' },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
+      imageUrl = result.secure_url;
+    } else {
+      // Use local file path in development
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'trailblazer/gallery',
+        resource_type: 'auto',
+      });
+      imageUrl = result.secure_url;
+      // Clean up local file
+      if (file.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    }
 
     // Save to database
     const galleryImage = await Gallery.create({
-      src: result.secure_url,
+      src: imageUrl,
       category,
       caption,
       collection,
@@ -55,12 +74,15 @@ const uploadImage = asyncHandler(async (req, res) => {
       data: galleryImage,
     });
   } catch (error) {
-    // Clean up temporary file if it exists
-    if (file.path && fs.existsSync(file.path)) {
+    // Clean up local file if it exists in development
+    if (!process.env.NODE_ENV === 'production' && file.path && fs.existsSync(file.path)) {
       fs.unlinkSync(file.path);
     }
-    res.status(500);
-    throw new Error('Error uploading image: ' + error.message);
+    console.error('Gallery upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading image: ' + error.message
+    });
   }
 });
 

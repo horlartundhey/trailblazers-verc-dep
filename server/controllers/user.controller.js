@@ -585,24 +585,55 @@ exports.updateProfilePicture = async (req, res) => {
       });
     }
 
-    // Create web-accessible URL path
-    const filePath = `/uploads/profile-pictures/${req.file.filename}`;
-    
-    // Log for debugging
-    console.log('File saved at:', req.file.path);
-    console.log('URL path for database:', filePath);
-    
-    // Update user in database
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { profilePicture: filePath },
-      { new: true }
-    ).select('-password');
+    const cloudinary = require('../utils/cloudinary');
+    let imageUrl;
 
-    res.status(200).json({
-      success: true,
-      data: updatedUser
-    });
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        // Upload buffer to Cloudinary in production
+        const result = await new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'trailblazer/profile-pictures',
+              resource_type: 'auto'
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          uploadStream.end(req.file.buffer);
+        });
+        imageUrl = result.secure_url;
+      } else {
+        // In development, upload local file to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'trailblazer/profile-pictures',
+          resource_type: 'auto'
+        });
+        imageUrl = result.secure_url;
+        // Clean up local file
+        const fs = require('fs');
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      }
+
+      // Update user in database with Cloudinary URL
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user.id,
+        { profilePicture: imageUrl },
+        { new: true }
+      ).select('-password');
+
+      res.status(200).json({
+        success: true,
+        data: updatedUser
+      });
+    } catch (uploadError) {
+      console.error('Cloudinary upload error:', uploadError);
+      throw new Error('Failed to upload image to cloud storage');
+    }
   } catch (error) {
     console.error('Profile picture upload error:', error);
     res.status(500).json({
