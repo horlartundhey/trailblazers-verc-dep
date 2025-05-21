@@ -76,6 +76,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+// Public events endpoint (no auth)
+const eventController = require('./controllers/event.controller');
+app.get('/api/public/events', eventController.getPublicEvents);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
