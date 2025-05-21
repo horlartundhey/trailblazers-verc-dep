@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Provider, useDispatch, useSelector } from 'react-redux';
-import store from './redux/store';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { getCurrentUser } from './redux/slices/authSlice';
 
 // Pages
@@ -13,16 +12,14 @@ import CompleteRegistration from './pages/member/CompleteRegistration';
 import PrivateRoute from './routes/PrivateRoute';
 import Index from './pages/Index';
 import RegisterMember from './pages/RegisterMember';
-import { setStore } from './utils/api';
-
-// Initialize the API with the Redux store
-setStore(store);
 
 // Set up application with Redux
 const AppContent = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user, token, loading } = useSelector(state => state.auth);
+  console.log('AppContent auth state:', { isAuthenticated, user, token, loading });
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -32,11 +29,10 @@ const AppContent = () => {
   }, [dispatch, token, isAuthenticated, loading]);
 
   useEffect(() => {
-    if (isAuthenticated && user && !loading) {
+    // Only auto-redirect immediately after login when on the login page
+    if (location.pathname === '/login' && isAuthenticated && user && !loading) {
       setIsRedirecting(true);
-      console.log('App.jsx: Redirecting user:', user);
-      
-      // Add a slight delay to ensure state propagation
+      console.log('App.jsx: Redirecting user after login:', user);
       setTimeout(() => {
         switch (user.role) {
           case 'Admin':
@@ -56,9 +52,9 @@ const AppContent = () => {
             navigate('/', { replace: true });
         }
         setIsRedirecting(false);
-      }, 100); // 100ms delay
+      }, 100);
     }
-  }, [isAuthenticated, user, loading, navigate]);
+  }, [location.pathname, isAuthenticated, user, loading, navigate]);
   
   if (isRedirecting) {
     return (
@@ -98,11 +94,9 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <Provider store={store}>
-      <Router>
-        <AppContent />
-      </Router>
-    </Provider>
+    <Router>
+      <AppContent />
+    </Router>
   );
 };
 

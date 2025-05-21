@@ -174,9 +174,7 @@ const authSlice = createSlice({
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
         state.loading = false;
-        state.isAuthenticated = false;
-        state.user = null;
-        state.token = null;
+        // On failure to fetch profile, keep existing auth state
         state.error = action.payload;
       })
 
