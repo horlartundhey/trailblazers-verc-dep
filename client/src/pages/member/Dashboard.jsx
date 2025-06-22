@@ -4,6 +4,7 @@ import { logout } from '../../redux/slices/authSlice';
 import API from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { getFullImagePath } from '../../utils/imageUtils';
+import PaymentHistory from '../../components/PaymentHistory';
 
 // StatCard Component
 const StatCard = ({ title, value, bgColor }) => (
