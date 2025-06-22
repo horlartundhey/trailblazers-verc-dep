@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import API from '../../utils/api';
+import API, { setAuthToken } from '../../utils/api';
 
 // Register user
 export const register = createAsyncThunk(
@@ -28,15 +28,18 @@ export const login = createAsyncThunk(
   'auth/login',
   async (userData, { rejectWithValue, dispatch }) => {
     try {
-      console.log('Login request payload:', userData);
+      // Make the login request
       const res = await API.post('/api/auth/login', userData);
-      console.log('Login response:', res.data);
-      const { token, user } = res.data.data;      // Set the token in Redux state and fetch user profile
-      await dispatch(getCurrentUser()).unwrap();
+      const { token, user } = res.data.data;
+
+      // Set token in API instance
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // First update the token in the state
+      dispatch(setToken(token));
 
       return { user, token };
     } catch (error) {
-      console.error('Login error:', error.response?.data || error);
       const message =
         error.response && error.response.data.message
           ? error.response.data.message
@@ -73,6 +76,7 @@ export const getCurrentUser = createAsyncThunk(
 
 // Logout user
 export const logout = createAsyncThunk('auth/logout', async () => {
+  setAuthToken(null);
   return null;
 });
 
@@ -113,8 +117,7 @@ const authSlice = createSlice({
     updateUser: (state, action) => {
       state.user = normalizeUser(action.payload);
     }
-  },
-  extraReducers: (builder) => {
+  },  extraReducers: (builder) => {
     builder
       // Register cases
       .addCase(register.pending, (state) => {
@@ -127,6 +130,7 @@ const authSlice = createSlice({
         state.user = normalizeUser(action.payload.user);
         state.token = action.payload.token;
         state.error = null;
+        setAuthToken(action.payload.token);
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
@@ -134,6 +138,7 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.error = action.payload;
+        setAuthToken(null);
       })
 
       // Login cases
@@ -147,6 +152,7 @@ const authSlice = createSlice({
         state.user = normalizeUser(action.payload.user);
         state.token = action.payload.token;
         state.error = null;
+        setAuthToken(action.payload.token);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -154,6 +160,7 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.error = action.payload;
+        setAuthToken(null);
       })
 
       // Get current user cases
