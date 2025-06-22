@@ -966,7 +966,7 @@ const formatSafeDate = (dateStr) => {
         <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
           <h3 className="text-lg font-medium leading-6 text-gray-900">Campus Events</h3>
           <div className="flex space-x-3">
-            <button
+            {/* <button
               onClick={() => {
                 setEventFormData({
                   name: '',
@@ -982,7 +982,7 @@ const formatSafeDate = (dateStr) => {
               className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
             >
               Create Event
-            </button>
+            </button> */}
           </div>
         </div>
         
