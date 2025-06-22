@@ -3,56 +3,74 @@ const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
-// @desc    Record a new payment (Admin only)
+// @desc    Record a new payment
 // @route   POST /api/payments
 // @access  Private (Admin only)
 exports.recordPayment = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
+    return res.status(400).json({ 
+      success: false, 
+      errors: errors.array(),
+      message: 'Validation error'
+    });
   }
 
   try {
-    const { userId, amount, month, paymentMethod, notes } = req.body;
+    console.log('Received payment data:', req.body);
+    const { userId, amount, currency, date, description, paymentMethod } = req.body;
+
+    if (!userId || !amount || !currency || !date || !paymentMethod) {
+      console.error('Missing required fields:', { userId, amount, currency, date, paymentMethod });
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
 
     // Verify the user exists
     const user = await User.findById(userId);
     if (!user) {
+      console.error('User not found:', userId);
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
 
-    // Check if payment for this month already exists
-    const existingPayment = await Payment.findOne({ userId, month });
-    if (existingPayment) {
-      return res.status(400).json({
-        success: false,
-        message: `Payment for ${month} already recorded for this user`
-      });
-    }
-
-    // Create new payment record
-    const payment = await Payment.create({
+    const paymentData = {
       userId,
       amount,
-      month,
+      currency,
+      date,
       paymentMethod,
-      notes,
+      description,
       recordedBy: req.user.id
-    });
+    };
+
+    console.log('Creating payment with data:', paymentData);
+
+    // Create new payment record
+    const payment = await Payment.create(paymentData);
+
+    console.log('Payment created successfully:', payment);
 
     res.status(201).json({
       success: true,
-      data: payment
+      data: payment,
+      message: 'Payment recorded successfully'
     });
   } catch (error) {
     console.error('Record payment error:', error);
+    // Send more detailed error information
     res.status(500).json({
       success: false,
       message: 'Failed to record payment',
-      error: error.message
+      error: {
+        message: error.message,
+        code: error.code,
+        name: error.name
+      }
     });
   }
 };
@@ -83,38 +101,41 @@ exports.getAllPayments = async (req, res) => {
 
 // @desc    Get payments by user ID
 // @route   GET /api/payments/user/:userId
-// @access  Private (Admin or the User themselves)
+// @access  Private (Admin or Owner)
 exports.getUserPayments = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const { userId } = req.params;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
-    // Check permissions - only admin or the user themselves can view their payments
+    // Only allow admins or the user themselves to view their payments
     if (req.user.role !== 'Admin' && req.user.id !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to view these payment records'
+        message: 'Not authorized to view these payments'
       });
     }
 
     const payments = await Payment.find({ userId })
-      .populate('recordedBy', 'name')
-      .sort({ month: -1 });
+      .sort({ date: -1 })
+      .populate('recordedBy', 'name');
 
-    // Calculate total contributions
-    const totalContributions = payments.reduce((sum, payment) => sum + payment.amount, 0);
-
-    res.json({
+    res.status(200).json({
       success: true,
-      count: payments.length,
-      totalContributions,
       data: payments
     });
   } catch (error) {
     console.error('Get user payments error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get payments',
-      error: error.message
+      message: 'Failed to fetch payments'
     });
   }
 };

@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { format } from 'date-fns';
+import { Calendar } from 'lucide-react';
 import API from '../../utils/api';
 
-const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {
-  const [user, setUser] = useState(null);
+const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {  const [user, setUser] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
-    month: format(new Date(), 'MM-yyyy'),
-    paymentMethod: '',
-    notes: ''
+    currency: 'NGN',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    paymentMethod: ''
   });
   const [formError, setFormError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -26,10 +26,7 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {
   const fetchUserDetails = async () => {
     setLoading(true);
     try {
-      // Use the API utility instead of direct axios calls
       const userResponse = await API.get(`/api/users/${userId}`);
-      
-      // Use the API utility for payments as well
       const paymentsResponse = await API.get(`/api/payments/user/${userId}`);
       
       setUser(userResponse.data.data);
@@ -55,30 +52,47 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {
     e.preventDefault();
     
     // Basic validation
-    if (!paymentFormData.amount || !paymentFormData.month || !paymentFormData.paymentMethod) {
-      setFormError('Please fill all required fields');
+    if (!paymentFormData.amount || !paymentFormData.date) {
+      setFormError('Please fill in the amount and date');
+      return;
+    }
+
+    if (!paymentFormData.paymentMethod) {
+      setFormError('Please select a payment method');
+      return;
+    }
+
+    if (isNaN(parseFloat(paymentFormData.amount)) || parseFloat(paymentFormData.amount) <= 0) {
+      setFormError('Please enter a valid amount');
       return;
     }
     
     try {
-      const response = await API.post('/api/payments', {
-        ...paymentFormData,
-        userId: userId
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
+      const paymentData = {
+        userId,
+        amount: parseFloat(paymentFormData.amount),
+        currency: paymentFormData.currency || 'NGN',
+        date: new Date(paymentFormData.date).toISOString(),
+        paymentMethod: paymentFormData.paymentMethod.toLowerCase(),
+        description: paymentFormData.description || ''
+      };
+
+      const response = await API.post('/api/payments', paymentData);
       if (response.data.success) {
         setSubmitSuccess(true);
-        // Reset form
+        // Reset form with default values
         setPaymentFormData({
           amount: '',
-          month: format(new Date(), 'MM-yyyy'),
-          paymentMethod: '',
-          notes: ''
+          currency: 'NGN',
+          date: new Date().toISOString().split('T')[0],
+          description: '',
+          paymentMethod: ''
         });
+        setFormError('');
         // Refresh payments data
         fetchUserDetails();
+        // Reset to first page when new payment is added
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error('Error recording payment:', error);
@@ -86,6 +100,11 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {
     }
   };
 
+  const formatAmount = (amount, currency) => {
+    return currency === 'USD' 
+      ? `$${amount.toFixed(2)}` 
+      : `₦${amount.toLocaleString()}`;
+  };
   if (!isOpen) return null;
 
   return (
@@ -106,273 +125,198 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {
           </button>
         </div>
 
-        {/* Loading Spinner */}
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        {/* Modal Body */}
+        <div className="p-6">
+          {/* Tabs */}
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('details')}
+                className={`${
+                  activeTab === 'details'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                User Details
+              </button>
+              <button
+                onClick={() => setActiveTab('payments')}
+                className={`${
+                  activeTab === 'payments'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Payments
+              </button>
+            </nav>
           </div>
-        ) : (
-          <>
-            {/* Tabs */}
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex">
-                <button
-                  onClick={() => setActiveTab('details')}
-                  className={`${
-                    activeTab === 'details'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm`}
-                >
-                  User Details
-                </button>
-                <button
-                  onClick={() => setActiveTab('payments')}
-                  className={`${
-                    activeTab === 'payments'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm`}
-                >
-                  Payment History
-                </button>
-                <button
-                  onClick={() => setActiveTab('addPayment')}
-                  className={`${
-                    activeTab === 'addPayment'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm`}
-                >
-                  Add Payment
-                </button>
-              </nav>
-            </div>
 
-            {/* Tab Content */}
-            <div className="p-6">
-              {/* User Details Tab */}
-              {activeTab === 'details' && user && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-lg font-medium mb-3">Personal Information</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-gray-500">Full Name</p>
-                        <p className="font-medium">{user.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{user.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{user.phone || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Member ID</p>
-                        <p className="font-medium">{user.memberCode || 'Not assigned'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-medium mb-3">Membership Information</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-gray-500">Role</p>
-                        <p className="font-medium">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.role === 'Admin' ? 'bg-purple-100 text-purple-800' :
-                            user.role === 'Leader' ? 'bg-green-100 text-green-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {user.role}
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Region</p>
-                        <p className="font-medium">{user.region || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Campus</p>
-                        <p className="font-medium">{user.campus || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Registration Status</p>
-                        <p className="font-medium">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.registrationStatus === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {user.registrationStatus || 'Pending'}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Payment History Tab */}
-              {activeTab === 'payments' && (
+          {/* Tab Content */}
+          <div className="mt-6">
+            {activeTab === 'details' && user && (
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-medium">Payment History</h4>
-                    <div className="text-sm text-gray-600">
-                      Total Contributions: <span className="font-semibold">${payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2)}</span>
-                    </div>
-                  </div>
-                  
-                  {payments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {payments.map((payment) => (
-                            <tr key={payment._id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{payment.month}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">${payment.amount.toFixed(2)}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900">{payment.paymentMethod}</div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-500">
-                                  {new Date(payment.createdAt).toLocaleDateString()}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-sm text-gray-500">{payment.notes || 'N/A'}</div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No payment records found for this user.
-                    </div>
-                  )}
+                  <p className="text-sm font-medium text-gray-500">Name</p>
+                  <p className="mt-1">{user.name}</p>
                 </div>
-              )}
-
-              {/* Add Payment Tab */}
-              {activeTab === 'addPayment' && (
                 <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <p className="mt-1">{user.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Role</p>
+                  <p className="mt-1">{user.role}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Member Code</p>
+                  <p className="mt-1">{user.memberCode || 'Not assigned'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Region</p>
+                  <p className="mt-1">{user.region}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Campus</p>
+                  <p className="mt-1">{user.campus}</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'payments' && (
+              <div>
+                {/* Payment Form */}
+                <form onSubmit={handlePaymentSubmit} className="mb-8 bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-lg font-medium mb-4">Record New Payment</h4>
                   
-                  {submitSuccess && (
-                    <div className="mb-4 bg-green-50 p-4 rounded-md">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-green-800">Payment recorded successfully!</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
                   {formError && (
-                    <div className="mb-4 bg-red-50 p-4 rounded-md">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-red-800">{formError}</p>
-                        </div>
-                      </div>
+                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                      {formError}
                     </div>
                   )}
                   
-                  <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Amount ($) *</label>
-                      <input
-                        type="number"
-                        name="amount"
-                        value={paymentFormData.amount}
-                        onChange={handlePaymentFormChange}
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        required
-                      />
+                  {submitSuccess && (
+                    <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+                      Payment recorded successfully!
                     </div>
-                    
+                  )}
+
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Month (MM-YYYY) *</label>
-                      <input
-                        type="text"
-                        name="month"
-                        value={paymentFormData.month}
-                        onChange={handlePaymentFormChange}
-                        placeholder="MM-YYYY"
-                        pattern="\d{2}-\d{4}"
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        required
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Amount</label>
+                      <div className="mt-1 flex rounded-md shadow-sm">
+                        <select
+                          name="currency"
+                          value={paymentFormData.currency}
+                          onChange={handlePaymentFormChange}
+                          className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="NGN">₦ (NGN)</option>
+                          <option value="USD">$ (USD)</option>
+                        </select>
+                        <input
+                          type="number"
+                          name="amount"
+                          value={paymentFormData.amount}
+                          onChange={handlePaymentFormChange}
+                          placeholder="0.00"
+                          className="flex-1 block w-full rounded-none rounded-r-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                          required
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Payment Method *</label>
+                      <label className="block text-sm font-medium text-gray-700">Payment Date</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <input
+                          type="date"
+                          name="date"
+                          value={paymentFormData.date}
+                          onChange={handlePaymentFormChange}
+                          className="block w-full rounded-md border-gray-300 pl-10 focus:ring-indigo-500 focus:border-indigo-500"
+                          required
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Calendar className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Payment Method<span className="text-red-500">*</span>
+                      </label>
                       <select
                         name="paymentMethod"
                         value={paymentFormData.paymentMethod}
                         onChange={handlePaymentFormChange}
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                          !paymentFormData.paymentMethod ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         required
                       >
-                        <option value="">Select payment method</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Credit Card">Credit Card</option>
-                        <option value="Mobile Money">Mobile Money</option>
-                        <option value="Other">Other</option>
+                        <option value="">Select a payment method</option>
+                        <option value="cash">Cash</option>
+                        <option value="transfer">Bank Transfer</option>
+                        <option value="card">Card Payment</option>
                       </select>
+                      {!paymentFormData.paymentMethod && (
+                        <p className="mt-1 text-sm text-red-600">Payment method is required</p>
+                      )}
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
                       <textarea
-                        name="notes"
-                        value={paymentFormData.notes}
+                        name="description"
+                        value={paymentFormData.description}
                         onChange={handlePaymentFormChange}
                         rows="3"
-                        className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      ></textarea>
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Optional payment notes..."
+                      />
                     </div>
-                    
-                    <div className="pt-4">
+
+                    <div>
                       <button
                         type="submit"
-                        className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                       >
                         Record Payment
                       </button>
                     </div>
-                  </form>
+                  </div>
+                </form>                {/* Payment History */}
+                <div>
+                  <h4 className="text-lg font-medium mb-4">Payment History</h4>
+                  <div className="bg-white max-h-[240px] overflow-y-auto pr-2">
+                    {payments.length === 0 ? (
+                      <p className="py-4 text-center text-gray-500">No payments recorded yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {payments.map((payment) => (
+                          <div key={payment._id} className="border-b border-gray-100 pb-2 last:border-b-0">
+                            <p className="font-medium">
+                              {formatAmount(payment.amount, payment.currency)}
+                            </p>
+                            <div className="flex justify-between items-center text-sm text-gray-500 mt-0.5">
+                              <span>{format(new Date(payment.date), 'MMM dd, yyyy')}</span>
+                              <span>Method: {payment.paymentMethod?.charAt(0).toUpperCase() + payment.paymentMethod?.slice(1)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </>
-        )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

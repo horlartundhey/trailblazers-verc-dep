@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Calendar, MapPin, Clock, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import API from '../utils/api';
+import EventDetails from './EventDetails';
 
 const Events = ({ onRegister, userId }) => {
   const [loading, setLoading] = useState(false);
@@ -10,6 +11,7 @@ const Events = ({ onRegister, userId }) => {
   const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventDetails, setShowEventDetails] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -54,14 +56,35 @@ const Events = ({ onRegister, userId }) => {
   }, [user]);
 
   const handleRegisterClick = (event) => {
-    setSelectedEvent(event);
-    setShowModal(true);
-    setRegistrationStatus(null);
-    setFormData({
-      name: user?.name || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-    });
+    if (!user) {
+      // For non-members, show event details
+      setSelectedEvent(event);
+      setShowEventDetails(true);
+    } else {
+      // For members, show registration modal
+      setSelectedEvent(event);
+      setShowModal(true);
+      setRegistrationStatus(null);
+      setFormData({
+        name: user?.name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+      });
+    }
+  };
+
+  const viewAttendance = async (eventId) => {
+    try {
+      const response = await API.get(`/api/events/${eventId}/attendance`);
+      if (response.data.success) {
+        console.log('Attendance data:', response.data.data);
+        // TODO: Implement attendance view modal or navigation
+        alert('Attendance view functionality will be implemented soon.');
+      }
+    } catch (err) {
+      console.error('Fetch attendance error:', err);
+      setError('Failed to fetch attendance data. ' + (err.response?.data?.message || 'Please try again.'));
+    }
   };
 
   const handleModalClose = () => {
@@ -201,28 +224,41 @@ const Events = ({ onRegister, userId }) => {
                           .length || 0}
                         /{event.capacity} spots
                       </span>
-                      <button
-                        onClick={() => handleRegisterClick(event)}
-                        className={`px-4 py-2 rounded-lg font-medium text-white transition duration-200 ${
-                          isUserRegistered(event)
-                            ? 'bg-green-600 hover:bg-green-700 cursor-not-allowed'
-                            : 'bg-indigo-600 hover:bg-indigo-700'
-                        }`}
-                        disabled={isUserRegistered(event)}
-                      >
-                        {getRegistrationStatus(event)}
-                      </button>
+                      {user.role === 'Member' && (
+                        <button
+                          onClick={() => handleRegisterClick(event)}
+                          className={`px-4 py-2 rounded-lg font-medium text-white transition duration-200 ${
+                            isUserRegistered(event)
+                              ? 'bg-green-600 hover:bg-green-700 cursor-not-allowed'
+                              : 'bg-indigo-600 hover:bg-indigo-700'
+                          }`}
+                          disabled={isUserRegistered(event)}
+                        >
+                          {getRegistrationStatus(event)}
+                        </button>
+                      )}
+                      {(user.role === 'Admin' || user.role === 'Leader') && (
+                        <button
+                          onClick={() => viewAttendance(event._id)}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition duration-200"
+                        >
+                          View Attendance
+                        </button>
+                      )}
                     </>
                   ) : (
-                    <div className="flex flex-col items-end">
-                      <p className="text-sm text-gray-600 mb-2">
-                        Sign up as a member to register for events
-                      </p>
+                    <div className="flex flex-col items-end space-y-2">
+                      <button
+                        onClick={() => handleRegisterClick(event)}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition duration-200"
+                      >
+                        View Event Details
+                      </button>
                       <Link
                         to="/register"
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition duration-200"
+                        className="block w-full px-4 py-2 text-center bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200 transition duration-200"
                       >
-                        Register as Member
+                        Sign up as Member
                       </Link>
                     </div>
                   )}
@@ -232,6 +268,20 @@ const Events = ({ onRegister, userId }) => {
           </div>
         )}
 
+        {/* Event Details Modal */}
+        {selectedEvent && (
+          <EventDetails
+            event={selectedEvent}
+            isOpen={showEventDetails}
+            onClose={() => {
+              setShowEventDetails(false);
+              setSelectedEvent(null);
+            }}
+            user={user}
+          />
+        )}
+
+        {/* Registration Modal */}
         {user && showModal && selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">

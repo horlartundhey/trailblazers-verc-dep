@@ -108,4 +108,34 @@ router.put(
   eventController.cancelRegistration
 );
 
+// @desc    Toggle check-in for an event
+// @route   POST /api/events/:id/check-in
+// @access  Private (Members)
+router.post(
+  '/:id/check-in',
+  protect,
+  authorize('Member', 'Leader'),
+  eventController.toggleCheckIn
+);
+
+// @desc    Get event attendance
+// @route   GET /api/events/:id/attendance
+// @access  Private (Admin, Leader)
+router.get(
+  '/:id/attendance',
+  protect,
+  authorize('Admin', 'Leader'),
+  eventController.getEventAttendance
+);
+
+// @desc    Export event attendance
+// @route   GET /api/events/:id/attendance/export
+// @access  Private (Admin, Leader)
+router.get(
+  '/:id/attendance/export',
+  protect,
+  authorize('Admin', 'Leader'),
+  eventController.exportAttendance
+);
+
 module.exports = router;

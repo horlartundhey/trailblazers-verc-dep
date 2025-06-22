@@ -17,8 +17,19 @@ exports.createEvent = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  try {
-    const { name, description, date, location, capacity, regions, campuses } = req.body;
+  try {    const { 
+      name, 
+      description, 
+      date, 
+      startTime, 
+      endTime,
+      registrationStartDate,
+      registrationEndDate,
+      location, 
+      capacity, 
+      regions, 
+      campuses 
+    } = req.body;
     let imageUrl = null;
 
     // Handle image upload
@@ -57,17 +68,44 @@ exports.createEvent = async (req, res) => {
     const finalRegions = regions && regions.length > 0 ? regions : allRegions;
     const finalCampuses = campuses && campuses.length > 0 ? campuses : allCampuses;
 
-    const event = await Event.create({
+    // Validate dates
+    const now = new Date();
+    const eventDate = new Date(date);
+    const regStartDate = new Date(registrationStartDate);
+    const regEndDate = new Date(registrationEndDate);
+
+    if (regStartDate >= regEndDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration start date must be before registration end date'
+      });
+    }
+
+    if (regEndDate >= eventDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration must end before the event date'
+      });
+    }
+
+    // Create event
+    const event = new Event({
       name,
       description,
-      date,
+      date: eventDate,
+      startTime,
+      endTime,
+      registrationStartDate: regStartDate,
+      registrationEndDate: regEndDate,
       location,
       capacity,
-      image: imageUrl,
-      regions: finalRegions,
-      campuses: finalCampuses,
-      createdBy: req.user._id
+      regions: regions || [],
+      campuses: campuses || [],
+      createdBy: req.user._id,
+      image: imageUrl
     });
+
+    await event.save();
 
     // Clean up local file in dev
     if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
@@ -193,10 +231,10 @@ exports.getEvents = async (req, res) => {
 // @route   GET /api/events/:id
 // @access  Private (All roles, with restrictions)
 exports.getEventById = async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id)
+  try {    const event = await Event.findById(req.params.id)
       .populate('createdBy', 'name email role')
-      .populate('registeredMembers.memberId', 'name email role region campus');
+      .populate('registeredMembers.memberId', 'name email role region campus')
+      .populate('attendance.user', 'name email role');
     
     if (!event) {
       return res.status(404).json({
@@ -489,12 +527,17 @@ exports.getPublicEvents = async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+      // Get IDs of both Admin and Leader users
+    const authorizedUserIds = await User.find({
+      role: { $in: ['Admin', 'Leader'] }
+    }).select('_id');
+
     const events = await Event.find({
       date: { $gte: today },
-      createdBy: { $in: await User.find({ role: 'Admin' }).select('_id') }, // Only admin-created events
+      createdBy: { $in: authorizedUserIds }
     })
       .sort({ date: 1 })
+      .populate('createdBy', 'name role')  // Include creator's name and role
       .select('-registeredMembers -__v');
     
     res.json({
@@ -584,6 +627,152 @@ exports.registerGuest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to register for event',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Toggle check-in for an event
+// @route   POST /api/events/:id/check-in
+// @access  Private (Members)
+exports.toggleCheckIn = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if event is on the current day
+    const today = new Date();
+    const eventDate = new Date(event.date);
+    const isEventDay = 
+      today.getFullYear() === eventDate.getFullYear() &&
+      today.getMonth() === eventDate.getMonth() &&
+      today.getDate() === eventDate.getDate();
+
+    if (!isEventDay) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in is only available on the day of the event'
+      });
+    }
+
+    // Check if current time is within event hours
+    const now = new Date();
+    if (now < event.startTime || now > event.endTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in is only available during event hours'
+      });
+    }
+
+    // Find existing attendance record
+    let attendanceRecord = event.attendance.find(
+      record => record.user.toString() === req.user._id.toString()
+    );
+
+    if (attendanceRecord) {
+      // Toggle existing record
+      attendanceRecord.checkedIn = !attendanceRecord.checkedIn;
+      if (attendanceRecord.checkedIn) {
+        attendanceRecord.checkedInAt = new Date();
+      }
+    } else {
+      // Create new attendance record
+      event.attendance.push({
+        user: req.user._id,
+        checkedIn: true,
+        checkedInAt: new Date()
+      });
+    }
+
+    await event.save();
+
+    res.json({
+      success: true,
+      message: 'Attendance updated successfully',
+      data: event
+    });
+  } catch (error) {
+    console.error('Toggle check-in error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get event attendance
+// @route   GET /api/events/:id/attendance
+// @access  Private (Admin, Leader)
+exports.getEventAttendance = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate('attendance.user', 'name email role');
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: event.attendance
+    });
+  } catch (error) {
+    console.error('Get event attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Export event attendance as CSV
+// @route   GET /api/events/:id/attendance/export
+// @access  Private (Admin, Leader)
+exports.exportAttendance = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate('attendance.user', 'name email role');
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Create CSV content
+    const csvHeader = 'Name,Email,Role,Check-in Status,Check-in Time\n';
+    const csvRows = event.attendance.map(record => {
+      const checkInTime = record.checkedInAt 
+        ? new Date(record.checkedInAt).toLocaleString()
+        : 'N/A';
+      return `${record.user.name},${record.user.email},${record.user.role},${record.checkedIn ? 'Yes' : 'No'},${checkInTime}`;
+    }).join('\n');
+
+    const csvContent = csvHeader + csvRows;
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=attendance-${event._id}.csv`);
+
+    // Send CSV content
+    res.send(csvContent);
+
+  } catch (error) {
+    console.error('Export attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export attendance',
       error: error.message
     });
   }

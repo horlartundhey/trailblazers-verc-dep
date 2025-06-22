@@ -28,7 +28,12 @@ connectDB();
 
 // CORS configuration - Must be before other middleware
 const corsOptions = {
-  origin: ['https://trailblazers-verc-client.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: [
+    'https://trailblazers-verc-client.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -36,12 +41,24 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Add this before any other middleware to ensure CORS headers are always set (especially for Vercel serverless)
+// Additional CORS headers for flexibility in development
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://trailblazers-verc-client.vercel.app');
+  const allowedOrigins = [
+    'https://trailblazers-verc-client.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -101,6 +118,37 @@ app.use((err, req, res, next) => {
     message: err.message || 'Something went wrong!'
   });
 });
+
+// Start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 5000;
+  
+  const server = app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  // Handle server errors
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use`);
+    } else {
+      console.error('Server error:', error);
+    }
+  });
+
+  // Handle unhandled rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Exit process on uncaught exception
+    process.exit(1);
+  });
+}
 
 // Export the app (for serverless environments like Vercel)
 module.exports = app;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { login, clearError } from '../../redux/slices/authSlice';
 import loginImage from '../../assets/images/collage.png';
 
@@ -81,6 +82,12 @@ const Login = () => {
       <div className="w-full md:w-1/2 flex items-center justify-center p-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
+            <Link 
+              to="/" 
+              className="inline-block mb-4 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              ← Back to Home
+            </Link>
             <h2 className="text-3xl font-extrabold text-gray-900">
               Sign in to your account
             </h2>                        

@@ -1,5 +1,20 @@
 const mongoose = require('mongoose');
 
+const AttendanceSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  checkedIn: {
+    type: Boolean,
+    default: false
+  },
+  checkedInAt: {
+    type: Date
+  }
+}, { _id: false, toJSON: { virtuals: true }, toObject: { virtuals: true } });
+
 const EventSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -14,6 +29,14 @@ const EventSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Event date is required']
   },
+  startTime: {
+    type: Date,
+    required: [true, 'Event start time is required']
+  },
+  endTime: {
+    type: Date,
+    required: [true, 'Event end time is required']
+  },
   location: {
     type: String,
     required: [true, 'Event location is required']
@@ -21,10 +44,27 @@ const EventSchema = new mongoose.Schema({
   capacity: {
     type: Number,
     required: [true, 'Event capacity is required']
-  },
-  image: {
+  },  image: {
     type: String,  // Store the image URL
     default: null
+  },
+  registrationStartDate: {
+    type: Date,
+    required: [true, 'Registration start date is required']
+  },
+  registrationEndDate: {
+    type: Date,
+    required: [true, 'Registration end date is required']
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  attendance: [AttendanceSchema],
+  checkInOpen: {
+    type: Boolean,
+    default: false
   },
   regions: {
     type: [String],
@@ -94,6 +134,23 @@ const EventSchema = new mongoose.Schema({
 // Virtual for checking if event is at capacity
 EventSchema.virtual('isAtCapacity').get(function() {
   return this.registeredMembers.filter(m => m.status === 'Confirmed').length >= this.capacity;
+});
+
+// Virtual to check if registration is open
+EventSchema.virtual('registrationStatus').get(function() {
+  const now = new Date();
+  if (now < this.registrationStartDate) {
+    return 'NOT_STARTED';
+  } else if (now > this.registrationEndDate) {
+    return 'CLOSED';
+  } else {
+    return 'OPEN';
+  }
+});
+
+// Virtual to check if event is full
+EventSchema.virtual('isFull').get(function() {
+  return this.attendance.length >= this.capacity;
 });
 
 // Methods to manage registration

@@ -1,12 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import API from '../../utils/api';
 
-// Action to set token in state
-const setToken = (token) => ({
-  type: 'auth/setToken',
-  payload: token,
-});
-
 // Register user
 export const register = createAsyncThunk(
   'auth/register',
@@ -37,12 +31,7 @@ export const login = createAsyncThunk(
       console.log('Login request payload:', userData);
       const res = await API.post('/api/auth/login', userData);
       console.log('Login response:', res.data);
-      const { token, user } = res.data.data;
-
-      // Set the token in Redux state before dispatching getCurrentUser
-      dispatch(setToken(token));
-
-      // Dispatch getCurrentUser to fetch the user profile
+      const { token, user } = res.data.data;      // Set the token in Redux state and fetch user profile
       await dispatch(getCurrentUser()).unwrap();
 
       return { user, token };
@@ -60,19 +49,19 @@ export const login = createAsyncThunk(
 // Get current user
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue, getState, signal }) => {
     try {
       const token = getState().auth.token;
-      console.log('Get current user - Token:', token);
       if (!token) {
         return rejectWithValue('No token found');
       }
 
-      const res = await API.get('/api/auth/me');
-      console.log('Get current user response:', res.data);
+      const res = await API.get('/api/auth/me', { signal });
       return res.data.data;
     } catch (error) {
-      console.error('Get current user error:', error.response?.data || error);
+      if (error.name === 'AbortError') {
+        return;
+      }
       const message =
         error.response && error.response.data.message
           ? error.response.data.message
@@ -105,6 +94,9 @@ const normalizeUser = (user) => ({
   campus: user.campus,
   memberCode: user.memberCode,
   registrationStatus: user.registrationStatus,
+  profilePicture: user.profilePicture || null,
+  position: user.position || null,
+  trainings: user.trainings || [],
 });
 
 const authSlice = createSlice({
@@ -118,6 +110,9 @@ const authSlice = createSlice({
       state.token = action.payload;
       state.isAuthenticated = true;
     },
+    updateUser: (state, action) => {
+      state.user = normalizeUser(action.payload);
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -188,5 +183,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, setToken, updateUser } = authSlice.actions;
 export default authSlice.reducer;

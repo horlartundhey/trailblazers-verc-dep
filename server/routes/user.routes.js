@@ -94,11 +94,14 @@ router.patch(
 );
 
 
-// @desc    Update current user's profile picture
-// @route   PATCH /api/users/me/profile-picture
-// @access  Private (All roles)
-router.patch(
-  '/me/profile-picture',
+// Profile routes
+router.route('/profile')
+  .get(protect, userController.getProfile)
+  .put(protect, userController.updateProfile);
+
+// Profile picture update route
+router.put(
+  '/profile-picture',
   protect,
   upload.single('profilePicture'),
   userController.updateProfilePicture
@@ -159,6 +162,37 @@ router.get(
 router.get(
   '/verify/:memberCode',
   userController.verifyMemberByCode
+);
+
+// Leader position and training management routes
+router.patch(
+  '/me',
+  [
+    protect,
+    authorize('Leader'),
+    check('position').notEmpty().withMessage('Position is required')
+  ],
+  userController.updatePosition
+);
+
+router.post(
+  '/me/trainings',
+  [
+    protect,
+    authorize('Leader'),
+    check('title').notEmpty().withMessage('Training title is required'),
+    check('completionDate').notEmpty().withMessage('Completion date is required')
+  ],
+  userController.addTraining
+);
+
+router.delete(
+  '/me/trainings/:trainingId',
+  [
+    protect,
+    authorize('Leader')
+  ],
+  userController.deleteTraining
 );
 
 module.exports = router;

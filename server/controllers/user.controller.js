@@ -673,3 +673,209 @@ exports.verifyMemberByCode = async (req, res) => {
     });
   }
 };
+
+// Update leader position
+exports.updatePosition = async (req, res) => {
+  try {
+    const { position } = req.body;
+    
+    if (!position) {
+      return res.status(400).json({
+        success: false,
+        message: 'Position is required'
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'Leader') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only leaders can update their position'
+      });
+    }
+
+    user.position = position;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: user,
+      message: 'Position updated successfully'
+    });
+  } catch (error) {
+    console.error('Update position error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update position'
+    });
+  }
+};
+
+// Add training
+exports.addTraining = async (req, res) => {
+  try {
+    const { title, completionDate } = req.body;
+    
+    if (!title || !completionDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and completion date are required'
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'Leader') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only leaders can add trainings'
+      });
+    }
+
+    user.trainings.push({
+      title,
+      completionDate: new Date(completionDate)
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      success: true,
+      data: user.trainings[user.trainings.length - 1],
+      message: 'Training added successfully'
+    });
+  } catch (error) {
+    console.error('Add training error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add training'
+    });
+  }
+};
+
+// Delete training
+exports.deleteTraining = async (req, res) => {
+  try {
+    const { trainingId } = req.params;
+    
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'Leader') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only leaders can delete trainings'
+      });
+    }
+
+    user.trainings = user.trainings.filter(t => t._id.toString() !== trainingId);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Training deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete training error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete training'
+    });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+  try {
+    const { position, trainings } = req.body;
+    const userId = req.user._id;
+
+    // Validate position if user is a leader
+    if (req.user.role === 'Leader' && !position) {
+      return res.status(400).json({
+        success: false,
+        message: 'Position is required for leaders'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update fields
+    if (req.user.role === 'Leader') {
+      user.position = position;
+    }
+    if (trainings) {
+      user.trainings = trainings;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile'
+    });
+  }
+};
+
+// @desc    Get user profile
+// @route   GET /api/users/profile
+// @access  Private
+exports.getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get profile'
+    });
+  }
+};

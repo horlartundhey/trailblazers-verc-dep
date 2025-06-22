@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../../redux/slices/authSlice';
+import { logout, getCurrentUser, updateUser } from '../../redux/slices/authSlice';
 import API from '../../utils/api';
-
+import { getFullImagePath } from '../../utils/imageUtils';
+import ProfileManagement from '../../components/leader/ProfileManagement';
 
 const StatCard = ({ title, value, bgColor }) => (
   <div className={`${bgColor} rounded-lg shadow overflow-hidden`}>
@@ -118,7 +119,7 @@ const UserDetailsModal = ({ userId, isOpen, onClose }) => {
 };
 
 
-const LeaderDashboard = () => {
+const Dashboard = () => {
   const [stats, setStats] = useState({
     totalMembers: 0,
     pendingMembers: 0,
@@ -167,6 +168,7 @@ const [paymentStats, setPaymentStats] = useState({
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector(state => state.auth);
+  const [showProfile, setShowProfile] = useState(false);
 
 
   const fetchPayments = async () => {
@@ -192,69 +194,62 @@ const [paymentStats, setPaymentStats] = useState({
       console.error('Error fetching payments:', error);
       setErrorMessage('Failed to load payment history');
     }
-  };
-  
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch members for the leader's region and campus
-        const membersResponse = await API.get(
-          `/api/users/region/${user.region}/campus/${user.campus}`
-        );
-        
-        const membersData = membersResponse.data.data || [];
-        setUsers(membersData);
-        
-        // Fetch events for the region and campus
-        const eventsResponse = await API.get('/api/events', {
+  };  // Memoize the fetch function to prevent recreating it on every render
+  const fetchDashboardData = React.useCallback(async () => {
+    if (!user?.region || !user?.campus || !user?._id) return;
+    
+    try {
+      setLoading(true);
+      
+      const [membersResponse, eventsResponse, paymentsResponse] = await Promise.all([
+        API.get(`/api/users/region/${user.region}/campus/${user.campus}`),
+        API.get('/api/events', {
           params: { region: user.region, campus: user.campus }
-        });
-        const eventsData = eventsResponse.data.data || [];
-        setEvents(eventsData);
-
-        // Fetch payment data
-      const paymentsResponse = await API.get('/api/payments/me');
+        }),
+        API.get('/api/payments/me')
+      ]);
+      
+      const membersData = membersResponse.data.data || [];
+      const eventsData = eventsResponse.data.data || [];
       const paymentsData = paymentsResponse.data.data || [];
       const totalContributions = paymentsResponse.data.totalContributions || 0;
       
+      // Update all state in one batch
+      setUsers(membersData);
+      setEvents(eventsData);
       setPayments(paymentsData);
       setPaymentStats({
         totalContributions,
         monthlyBreakdown: paymentsResponse.data.monthlyBreakdown || {}
       });
-        
-        // Calculate dashboard statistics
-        const totalMembers = membersData.length;
-        const pendingMembers = membersData.filter(
+      
+      setStats({
+        totalMembers: membersData.length,
+        pendingMembers: membersData.filter(
           member => member.registrationStatus === 'Pending'
-        ).length;
-        const completedMembers = membersData.filter(
+        ).length,
+        completedMembers: membersData.filter(
           member => member.registrationStatus === 'Completed'
-        ).length;
-        const totalEvents = eventsData.length;
-               
-        
-        setStats({
-          totalMembers,
-          pendingMembers,
-          completedMembers,
-          totalEvents,
-          totalPayments: totalContributions 
-        });
-        
-        setError(null);
-      } catch (err) {
-        setError('Failed to load dashboard data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchDashboardData();
-  }, [user.region, user.campus, user]);
+        ).length,
+        totalEvents: eventsData.length,
+        totalPayments: totalContributions 
+      });
+      
+      setError(null);
+    } catch (err) {
+      setError('Failed to load dashboard data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?._id, user?.region, user?.campus]);
+  
+  // Effect to fetch dashboard data initially and when user data changes
+  useEffect(() => {
+    if (user?._id && user?.region && user?.campus) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData]);
   
   const handleLogout = () => {
       dispatch(logout());
@@ -489,83 +484,150 @@ const formatSafeDate = (dateStr) => {
     console.error('Date formatting error:', e);
     return 'Invalid Date';
   }
-};
+};  // Effect to refresh user data when profile modal is closed  // ProfileManagement refresh has been moved to the onClose handler in the JSX
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
+  return (    <div className="min-h-screen bg-gray-100">      {/* Profile Management Modal */}
+      {showProfile && (
+        <ProfileManagement 
+          isOpen={showProfile}
+          onClose={() => {
+            setShowProfile(false);
+            // Wait for modal animation to complete before refreshing
+            setTimeout(() => {
+              dispatch(getCurrentUser());
+            }, 300);
+          }}
+        />
+      )}{/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Leader Dashboard</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-gray-700">Welcome, {user?.name}</span>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-            >
-              Logout
-            </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Leader Dashboard</h1>
+              <div className="ml-6 flex space-x-4">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                  {user?.region}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                  {user?.campus}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-3">
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-medium text-gray-900">{user?.name}</span>
+                  <span className="text-xs text-gray-500">{user?.position || 'Leader'}</span>
+                </div>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowProfile(true)}
+                    className="flex items-center justify-center"
+                  >                    {user?.profilePicture ? (
+                      <img
+                        src={getFullImagePath(user.profilePicture)}
+                        alt="Profile"
+                        className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
+                        <span className="text-lg font-medium text-indigo-600">
+                          {user?.name?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 border-2 border-white"></div>
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
-      
-      {/* Navigation */}
+        {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          <div className="flex space-x-1">
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'dashboard' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              className={`px-4 py-4 inline-flex items-center ${
+                activeTab === 'dashboard'
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+              } transition-colors duration-200 ease-in-out focus:outline-none`}
               onClick={() => setActiveTab('dashboard')}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
               Dashboard
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'members' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              className={`px-4 py-4 inline-flex items-center ${
+                activeTab === 'members'
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+              } transition-colors duration-200 ease-in-out focus:outline-none`}
               onClick={() => setActiveTab('members')}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
               Members
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'createMember' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              className={`px-4 py-4 inline-flex items-center ${
+                activeTab === 'createMember'
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+              } transition-colors duration-200 ease-in-out focus:outline-none`}
               onClick={() => setActiveTab('createMember')}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
               Create Member
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'events' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              className={`px-4 py-4 inline-flex items-center ${
+                activeTab === 'events'
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+              } transition-colors duration-200 ease-in-out focus:outline-none`}
               onClick={() => setActiveTab('events')}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
               Events
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'payments' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              className={`px-4 py-4 inline-flex items-center ${
+                activeTab === 'payments'
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+              } transition-colors duration-200 ease-in-out focus:outline-none`}
               onClick={() => setActiveTab('payments')}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
               My Payments
             </button>
+
+            
           </div>
         </div>
       </nav>
+      
       
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -626,13 +688,16 @@ const formatSafeDate = (dateStr) => {
                     title="Manage Members" 
                     description="View and manage members in your campus" 
                     onClick={() => setActiveTab('members')} 
-                  />
-                  <ActionButton 
+                  />                  <ActionButton 
                     title="Create Member" 
                     description="Add new member to your campus" 
                     onClick={() => setActiveTab('createMember')} 
                   />
                   <ActionButton 
+                    title="Manage Profile" 
+                    description="Update your position, trainings, and profile picture" 
+                    onClick={() => setShowProfile(true)} 
+                  />                  <ActionButton 
                     title="Pending Members" 
                     description="View pending registrations" 
                     onClick={() => {
@@ -1246,8 +1311,7 @@ const formatSafeDate = (dateStr) => {
 )}
 
 
-        
-        {/* User Details Modal */}
+          {/* User Details Modal */}
         {isModalOpen && selectedUserId && (
           <UserDetailsModal 
             userId={selectedUserId} 
@@ -1255,9 +1319,15 @@ const formatSafeDate = (dateStr) => {
             onClose={closeModal} 
           />
         )}
+
+        {/* Profile Management Modal */}
+        <ProfileManagement 
+          isOpen={showProfile}
+          onClose={() => setShowProfile(false)}
+        />
       </main>
     </div>
   );
 };
 
-export default LeaderDashboard;
+export default Dashboard;

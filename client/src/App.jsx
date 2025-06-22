@@ -6,12 +6,14 @@ import { getCurrentUser } from './redux/slices/authSlice';
 // Pages
 import Login from './components/auth/Login';
 import AdminDashboard from './pages/admin/Dashboard';
+import AttendanceDashboard from './pages/admin/AttendanceDashboard';
 import LeaderDashboard from './pages/leader/Dashboard';
 import MemberDashboard from './pages/member/Dashboard';
 import CompleteRegistration from './pages/member/CompleteRegistration';
 import PrivateRoute from './routes/PrivateRoute';
 import Index from './pages/Index';
 import RegisterMember from './pages/RegisterMember';
+import Events from './pages/Events';
 
 // Set up application with Redux
 const AppContent = () => {
@@ -69,6 +71,7 @@ const AppContent = () => {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Index />} />
+      <Route path="/events" element={<Events />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<RegisterMember />} />
       

@@ -1,6 +1,17 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const trainingSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  completionDate: {
+    type: Date,
+    required: true
+  }
+}, { _id: true });
+
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -38,9 +49,17 @@ const UserSchema = new mongoose.Schema({
     ref: 'User',
     required: function() { return this.role === 'Member'; }
   },
+  position: {
+    type: String,
+    required: function() { return this.role === 'Leader'; }
+  },
+  trainings: {
+    type: [String],
+    default: []
+  },
   profilePicture: {
-    type: String, // This will store the path/URL to the image
-    default: ''
+    type: String,
+    default: null
   },
   registrationStatus: {
     type: String,

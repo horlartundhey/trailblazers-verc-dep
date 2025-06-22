@@ -9,12 +9,13 @@ const { protect, authorize } = require('../middleware/auth.middleware');
 router.post(
   '/',
   protect,
-  authorize('Admin'),
-  [
+  authorize('Admin'),  [
     check('userId', 'User ID is required').not().isEmpty(),
     check('amount', 'Amount is required and must be a positive number').isFloat({ min: 0 }),
-    check('month', 'Month is required in MM-YYYY format').matches(/^(0[1-9]|1[0-2])-\d{4}$/),
-    check('paymentMethod', 'Valid payment method is required').isIn(['Cash', 'Bank Transfer', 'Card Payment', 'Mobile Money', 'Other'])
+    check('currency', 'Currency must be either NGN or USD').isIn(['NGN', 'USD']),
+    check('date', 'Valid date is required').isISO8601().toDate(),
+    check('paymentMethod', 'Valid payment method is required').isIn(['cash', 'transfer', 'card']),
+    check('description').optional().trim()
   ],
   paymentController.recordPayment
 );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
+import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../../redux/slices/authSlice';
 import UserDetailsModal from './UserDetailsModal';
@@ -8,16 +9,16 @@ import API from '../../utils/api';
 import GalleryImageForm from '../../components/GalleryImageForm';
 
 
-const AdminDashboard = () => {
-  const [stats, setStats] = useState({
+const AdminDashboard = () => {  const [stats, setStats] = useState({
     totalMembers: 0,
-  totalLeaders: 0,
-  pendingMembers: 0,
-  completedMembers: 0,
-  totalEvents: 0,
-  totalPayments: 0,
-  regions: [],
-  campuses: []
+    totalLeaders: 0,
+    pendingMembers: 0,
+    completedMembers: 0,
+    totalEvents: 0,
+    totalPaymentsNGN: 0,
+    totalPaymentsUSD: 0,
+    regions: [],
+    campuses: []
   });
   const [users, setUsers] = useState([]);
 
@@ -27,9 +28,9 @@ const AdminDashboard = () => {
 
   const [regions, setRegions] = useState([]);
   const [campuses, setCampuses] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-const [showModal, setShowModal] = useState(false);
+  const [events, setEvents] = useState([]);  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [eventTab, setEventTab] = useState('details');
 
 
 
@@ -78,14 +79,19 @@ const [showModal, setShowModal] = useState(false);
           user.role === 'Member' && user.registrationStatus === 'Pending').length;
         const completedMembers = userData.filter(user => 
           user.role === 'Member' && user.registrationStatus === 'Completed').length;
-
-          // Calculate total events
+      // Calculate total events
       const totalEvents = eventsData.length;
       
-      // Calculate total payments (sum of all payment amounts)
-      const totalPayments = paymentsData.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      // Calculate total payments separated by currency
+      const totalPaymentsNGN = paymentsData
+        .filter(payment => payment.currency === 'NGN')
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
         
-        // Extract regions and create region stats
+      const totalPaymentsUSD = paymentsData
+        .filter(payment => payment.currency === 'USD')
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        
+      // Extract regions and create region stats
         const regionData = {};
         userData.forEach(user => {
           if (user.region) {
@@ -114,16 +120,16 @@ const [showModal, setShowModal] = useState(false);
             campusData[user.campus].memberCount += 1;
           }
         });
-        
-        setStats({
+          setStats({
           totalMembers,
-        totalLeaders,
-        pendingMembers,
-        completedMembers,
-        totalEvents,
-        totalPayments,
-        regions: Object.values(regionData) || [],
-        campuses: Object.values(campusData) || []
+          totalLeaders,
+          pendingMembers,
+          completedMembers,
+          totalEvents,
+          totalPaymentsNGN,
+          totalPaymentsUSD,
+          regions: Object.values(regionData) || [],
+          campuses: Object.values(campusData) || []
         });
         
         // Extract unique regions and campuses for filtering
@@ -157,14 +163,22 @@ const [showModal, setShowModal] = useState(false);
       setSuccessMessage('');
       setErrorMessage('');
       
+      // Add the current user as creator
+      const eventPayload = {
+        ...eventData,
+        createdBy: user._id,  // Add the current user as creator
+        registrationStartDate: eventData.registrationStartDate || eventData.date, // Default to event date if not specified
+        registrationEndDate: eventData.registrationEndDate || eventData.startTime, // Default to event start time if not specified
+      };
+      
       // If an image file is present, create a FormData object
       if (eventData.imageFile) {
         const formData = new FormData();
         
         // Append all event data fields
-        Object.keys(eventData).forEach(key => {
+        Object.keys(eventPayload).forEach(key => {
           if (key !== 'imageFile') {
-            formData.append(key, eventData[key]);
+            formData.append(key, eventPayload[key]);
           }
         });
         
@@ -184,7 +198,7 @@ const [showModal, setShowModal] = useState(false);
         setSuccessMessage('Event created successfully!');
       } else {
         // If no image, proceed with regular JSON post
-        const response = await API.post('/api/events', eventData);
+        const response = await API.post('/api/events', eventPayload);
         
         setEvents(prevEvents => [...prevEvents, response.data.data]);
         setSuccessMessage('Event created successfully!');
@@ -437,8 +451,17 @@ const [showModal, setShowModal] = useState(false);
             <StatCard title="Total Leaders" value={stats.totalLeaders} bgColor="bg-green-500" />
             <StatCard title="Pending Members" value={stats.pendingMembers} bgColor="bg-yellow-500" />
             <StatCard title="Completed Members" value={stats.completedMembers} bgColor="bg-purple-500" />
-            <StatCard title="Total Events" value={stats.totalEvents} bgColor="bg-indigo-500" />
-            <StatCard title="Total Payments" value={`N${stats.totalPayments.toFixed(2)}`} bgColor="bg-teal-500" />
+            <StatCard title="Total Events" value={stats.totalEvents} bgColor="bg-indigo-500" />            
+              <StatCard 
+                title="Total Payments NGN" 
+                value={`₦${stats.totalPaymentsNGN.toLocaleString()}`} 
+                bgColor="bg-emerald-400" 
+              />
+              <StatCard 
+                title="Total Payments USD" 
+                value={`$${stats.totalPaymentsUSD.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} 
+                bgColor="bg-teal-600" 
+              />
             </div>
             
             {/* Regions and Campuses */}
@@ -881,12 +904,39 @@ const [showModal, setShowModal] = useState(false);
                 </svg>
               </button>
             </div>
-            
-            <div className="px-6 py-4">
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="text-md text-gray-900">{selectedEvent.name}</p>
+              <div className="px-6 py-4">
+              {/* Tabs */}
+              <div className="border-b border-gray-200 mb-4">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setEventTab('details')}
+                    className={`${
+                      eventTab === 'details'
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                  >
+                    Event Details
+                  </button>
+                  <button
+                    onClick={() => setEventTab('attendance')}
+                    className={`${
+                      eventTab === 'attendance'
+                        ? 'border-indigo-500 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                  >
+                    Attendance
+                  </button>
+                </nav>
               </div>
+
+              {eventTab === 'details' ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-500">Name</p>
+                    <p className="text-md text-gray-900">{selectedEvent.name}</p>
+                  </div>
               
               <div className="mb-4">
                 <p className="text-sm font-medium text-gray-500">Description</p>
@@ -910,13 +960,30 @@ const [showModal, setShowModal] = useState(false);
                   <p className="text-sm font-medium text-gray-500">Capacity</p>
                   <p className="text-md text-gray-900">{selectedEvent.capacity}</p>
                 </div>
-                
-                <div>
+                  <div>
                   <p className="text-sm font-medium text-gray-500">Created By</p>
                   <p className="text-md text-gray-900">
-                    {typeof selectedEvent.createdBy === 'object' 
-                      ? selectedEvent.createdBy.name || 'Unknown User'
-                      : selectedEvent.createdBy}
+                    {selectedEvent?.createdBy?.name || 'Unknown User'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Registration Opens</p>
+                  <p className="text-md text-gray-900">
+                    {selectedEvent?.registrationStartDate 
+                      ? format(new Date(selectedEvent.registrationStartDate), 'MMM dd, yyyy h:mm a')
+                      : 'Not set'}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Registration Closes</p>
+                  <p className="text-md text-gray-900">
+                    {selectedEvent?.registrationEndDate
+                      ? format(new Date(selectedEvent.registrationEndDate), 'MMM dd, yyyy h:mm a')
+                      : 'Not set'}
                   </p>
                 </div>
               </div>
@@ -940,8 +1007,51 @@ const [showModal, setShowModal] = useState(false);
                       {campus}
                     </span>
                   ))}
+                </div>              </div>
+              </>) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Attendance List</h3>
+                    <p className="text-sm text-gray-500">
+                      {selectedEvent?.attendance?.length || 0} registered
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                    {selectedEvent?.attendance?.length > 0 ? (
+                      <ul className="divide-y divide-gray-200">
+                        {selectedEvent.attendance.map((record) => (
+                          <li key={record._id} className="px-4 py-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{record.user.name}</p>
+                                <p className="text-sm text-gray-500">{record.user.email}</p>
+                                <p className="text-sm text-gray-500">Role: {record.user.role}</p>
+                              </div>
+                              <div className="flex items-center">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  record.checkedIn
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {record.checkedIn ? 'Checked In' : 'Registered'}
+                                </span>
+                                {record.checkedIn && record.checkedInAt && (
+                                  <p className="ml-2 text-sm text-gray-500">
+                                    {format(new Date(record.checkedInAt), 'MMM dd, h:mm a')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-center py-4 text-gray-500">No attendees yet</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             
             <div className="px-6 py-3 bg-gray-50 text-right">
@@ -974,10 +1084,10 @@ const [showModal, setShowModal] = useState(false);
 // Stat Card Component
 const StatCard = ({ title, value, bgColor }) => {
   return (
-    <div className={`${bgColor} rounded-lg shadow overflow-hidden text-white`}>
-      <div className="px-4 py-5 sm:p-6">
-        <dt className="text-sm font-medium truncate">{title}</dt>
-        <dd className="mt-1 text-3xl font-semibold">{value}</dd>
+    <div className={`${bgColor} rounded-lg text-white min-w-[140px]`}>
+      <div className="p-4">
+        <dt className="text-sm font-normal truncate mb-1">{title}</dt>
+        <dd className="text-2xl font-semibold">{value}</dd>
       </div>
     </div>
   );
@@ -1000,10 +1110,13 @@ const ActionButton = ({ title, description, onClick }) => {
 
 // New Event Form Component
 const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
-  const [formData, setFormData] = useState({
-    name: initialData.name || '',
+  const [formData, setFormData] = useState({    name: initialData.name || '',
     description: initialData.description || '',
     date: initialData.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
+    startTime: initialData.startTime ? new Date(initialData.startTime).toISOString().slice(0, 16) : '',
+    endTime: initialData.endTime ? new Date(initialData.endTime).toISOString().slice(0, 16) : '',
+    registrationStartDate: initialData.registrationStartDate ? new Date(initialData.registrationStartDate).toISOString().slice(0, 16) : '',
+    registrationEndDate: initialData.registrationEndDate ? new Date(initialData.registrationEndDate).toISOString().slice(0, 16) : '',
     location: initialData.location || '',
     capacity: initialData.capacity || 0,
     regions: initialData.regions || [],
@@ -1087,10 +1200,8 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
             required
             className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
           />
-        </div>
-
-        <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700">Date</label>
+        </div>        <div>
+          <label htmlFor="date" className="block text-sm font-medium text-gray-700">Event Date</label>
           <input
             type="date"
             name="date"
@@ -1100,6 +1211,63 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
             required
             className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">Start Time</label>
+            <input
+              type="datetime-local"
+              name="startTime"
+              id="startTime"
+              value={formData.startTime}
+              onChange={handleChange}
+              required
+              className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">End Time</label>
+            <input
+              type="datetime-local"
+              name="endTime"
+              id="endTime"
+              value={formData.endTime}
+              onChange={handleChange}
+              required
+              className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <h3 className="block text-sm font-medium text-gray-700 mb-2">Registration Period</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="registrationStartDate" className="block text-sm font-medium text-gray-700">Opens</label>
+              <input
+                type="datetime-local"
+                name="registrationStartDate"
+                id="registrationStartDate"
+                value={formData.registrationStartDate}
+                onChange={handleChange}
+                required
+                className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label htmlFor="registrationEndDate" className="block text-sm font-medium text-gray-700">Closes</label>
+              <input
+                type="datetime-local"
+                name="registrationEndDate"
+                id="registrationEndDate"
+                value={formData.registrationEndDate}
+                onChange={handleChange}
+                required
+                className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="sm:col-span-2">

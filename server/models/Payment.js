@@ -5,26 +5,36 @@ const PaymentSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'User ID is required']
   },
   amount: {
     type: Number,
     required: [true, 'Payment amount is required'],
     min: [0, 'Amount cannot be negative']
   },
-  month: {
+  currency: {
     type: String,
-    required: [true, 'Month is required'],
-    match: [/^(0[1-9]|1[0-2])-\d{4}$/, 'Month format should be MM-YYYY']
+    enum: ['NGN', 'USD'],
+    default: 'NGN',
+    required: true
   },
-  paymentDate: {
+  date: {
     type: Date,
-    default: Date.now
+    required: [true, 'Payment date is required']
   },
   paymentMethod: {
     type: String,
-    enum: ['Cash', 'Bank Transfer', 'Card Payment', 'Mobile Money', 'Other'],
-    default: 'Cash'
+    enum: ['cash', 'transfer', 'card'],
+    required: [true, 'Payment method is required']
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  recordedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Recorder ID is required']
   },
   receiptNumber: {
     type: String,
