@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDate } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
-const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance }) => {
+const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, onRegister }) => {
   const isAdmin = user?.role === 'Admin';
   const isLeader = user?.role === 'Leader';
   const isMember = user?.role === 'Member';
@@ -37,6 +37,21 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance }) 
     return isEventDay(event.date) && isWithinEventHours(event.startTime, event.endTime);
   };
 
+  const isUserRegistered = () => {
+    if (!user || !event.registeredMembers) return false;
+    return event.registeredMembers.some(m => m.memberId === user._id);
+  };
+
+  const getRegistrationStatus = () => {
+    if (!user || !event.registeredMembers) return null;
+    const registration = event.registeredMembers.find(m => m.memberId === user._id);
+    return registration?.status || null;
+  };
+
+  const registrationStatus = getRegistrationStatus();
+  const userRegistered = isUserRegistered();
+  const isFull = event.registeredMembers?.filter(m => m.status === 'Confirmed').length >= event.capacity;
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105">
       {event.image && (
@@ -57,25 +72,60 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance }) 
         <p className="text-gray-600 mb-4">{event.location}</p>
         <p className="text-gray-700 line-clamp-3">{event.description}</p>
 
+        {/* Registration status */}
+        <div className="mt-4 mb-2">
+          <p className={`text-sm font-medium ${isFull ? 'text-red-600' : 'text-green-600'}`}>
+            {event.registeredMembers?.filter(m => m.status === 'Confirmed').length || 0}/{event.capacity} spots filled
+          </p>
+        </div>
+
         <div className="mt-4 space-y-2">
           {isAuthenticated ? (
             <>
               {/* Member view */}
               {isMember && (
                 <>
-                  <button
-                    onClick={() => onCheckIn(event._id)}
-                    disabled={!canCheckIn(event) || isCheckedIn(event)}
-                    className={`w-full px-4 py-2 rounded font-medium ${
-                      isCheckedIn(event)
-                        ? 'bg-green-500 hover:bg-green-600 text-white'
-                        : canCheckIn(event)
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                    }`}
-                  >
-                    {isCheckedIn(event) ? 'Checked In ✓' : 'Check In'}
-                  </button>
+                  {/* Registration button for members */}
+                  {!userRegistered && !isFull && (
+                    <button
+                      onClick={() => onRegister(event)}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                    >
+                      Register for Event
+                    </button>
+                  )}
+                  
+                  {/* Registration status display */}
+                  {userRegistered && (
+                    <div className={`w-full px-4 py-2 text-center rounded font-medium ${
+                      registrationStatus === 'Confirmed'
+                        ? 'bg-green-100 text-green-800'
+                        : registrationStatus === 'Waitlist'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {registrationStatus === 'Confirmed' ? '✓ Registration Confirmed' 
+                        : registrationStatus === 'Waitlist' ? 'On Waitlist'
+                        : 'Registration Pending'}
+                    </div>
+                  )}
+
+                  {/* Check-in button */}
+                  {userRegistered && registrationStatus === 'Confirmed' && (
+                    <button
+                      onClick={() => onCheckIn(event._id)}
+                      disabled={!canCheckIn(event) || isCheckedIn(event)}
+                      className={`w-full px-4 py-2 rounded font-medium ${
+                        isCheckedIn(event)
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : canCheckIn(event)
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                      }`}
+                    >
+                      {isCheckedIn(event) ? 'Checked In ✓' : 'Check In'}
+                    </button>
+                  )}
 
                   <button
                     onClick={() => onViewDetails(event)}

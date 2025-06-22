@@ -1068,7 +1068,7 @@ const formatSafeDate = (dateStr) => {
           ) : (
             <div className="text-center py-8">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No events</h3>
               <p className="mt-1 text-sm text-gray-500">Get started by creating a new event.</p>
@@ -1218,48 +1218,52 @@ const formatSafeDate = (dateStr) => {
     </div>
     
     <div className="p-6">
-      {/* Total Payments Summary */}
-      <h4 className="text-lg font-medium mb-4">Total Payments</h4>
-      <div className="bg-gray-50 rounded-lg p-4 mb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Object.entries(payments.reduce((acc, payment) => {
-            if (!acc[payment.currency]) {
-              acc[payment.currency] = 0;
-            }
-            acc[payment.currency] += payment.amount;
-            return acc;
-          }, {})).map(([currency, total]) => (
-            <div key={currency} className="bg-white p-6 rounded-lg shadow">
-              <h5 className="text-lg font-medium text-gray-700">Total in {currency}</h5>
-              <p className="text-3xl font-bold text-green-600 mt-2">
-                {currency === 'NGN' ? '₦' : '$'}{total.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                })}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-800">Total Payments Made</h4>
+          <h4 className="text-sm font-medium text-blue-800">Total Contributions</h4>
           <p className="mt-1 text-2xl font-bold text-blue-900">
+            ${paymentStats.totalContributions.toLocaleString()}
+          </p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h4 className="text-sm font-medium text-green-800">Payments Count</h4>
+          <p className="mt-1 text-2xl font-bold text-green-900">
             {payments.length}
           </p>
         </div>
         <div className="bg-purple-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-purple-800">Last Payment Date</h4>
+          <h4 className="text-sm font-medium text-purple-800">Last Payment</h4>
           <p className="mt-1 text-2xl font-bold text-purple-900">
             {payments.length > 0 ? 
-              (payments[0].date ? new Date(payments[0].date).toLocaleDateString() : 'N/A') : 
-              'No payments yet'}
+              parseAndFormatMonth(payments[0].month) : 
+              'N/A'}
           </p>
         </div>
       </div>
-
+      
+      {/* Monthly Breakdown */}
+      <h4 className="text-lg font-medium mb-4">Monthly Breakdown</h4>
+      {Object.keys(paymentStats.monthlyBreakdown).length > 0 ? (
+        <div className="bg-gray-50 rounded-lg p-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(paymentStats.monthlyBreakdown)
+              .map(([month, amount]) => (
+                <div key={month} className="bg-white p-4 rounded shadow">
+                  <h5 className="font-medium text-gray-700">
+                    {parseAndFormatMonth(month)}
+                  </h5>
+                  <p className="text-green-600 font-bold mt-1">
+                    ${amount.toLocaleString()}
+                  </p>
+                </div>
+              ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-gray-500 py-4">No payment records available</p>
+      )}
+      
       {/* Detailed Payments Table */}
       <h4 className="text-lg font-medium mb-4">Payment Details</h4>
       {payments.length > 0 ? (
@@ -1267,30 +1271,27 @@ const formatSafeDate = (dateStr) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Currency</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recorded By</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {payments.map(payment => (
                 <tr key={payment._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {payment.date ? new Date(payment.date).toLocaleDateString() : 'N/A'}
+                    {parseAndFormatMonth(payment.month)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-green-600 font-medium">
-                    {payment.currency === 'NGN' ? '₦' : '$'}{payment.amount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
+                    ${payment.amount.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{payment.currency}</td>
-                  <td className="px-6 py-4 whitespace-nowrap capitalize">{payment.paymentMethod}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{payment.description || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{payment.recordedBy?.name || 'System'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {payment.recordedBy?.name || 'System'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {formatSafeDate(payment.createdAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -4,7 +4,6 @@ import { logout } from '../../redux/slices/authSlice';
 import API from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { getFullImagePath } from '../../utils/imageUtils';
-import PaymentHistory from '../../components/PaymentHistory';
 
 // StatCard Component
 const StatCard = ({ title, value, bgColor }) => (
@@ -345,24 +344,31 @@ const MemberDashboard = () => {
     dispatch(logout());
     navigate('/login');
   };
-
   const handleRegisterForEvent = async (eventId) => {
     try {
       setLoading(true);
+      setError(null);
       const response = await API.post(`/api/events/${eventId}/register`);
-      console.log('Register event response:', response.data); // Debug log
-      setSuccessMessage('Successfully registered for event!');
-      const eventsResponse = await API.get('/api/events', {
-        params: { region: user?.region, campus: user?.campus },
-      });
-      if (eventsResponse.data.success && Array.isArray(eventsResponse.data.data)) {
-        setEvents(eventsResponse.data.data);
+      console.log('Register event response:', response.data);
+      
+      if (response.data.success) {
+        setSuccessMessage(response.data.data.message || 'Successfully registered for event!');
+        
+        // Refresh events list to update registration status
+        const eventsResponse = await API.get('/api/events', {
+          params: { region: user?.region, campus: user?.campus },
+        });
+        if (eventsResponse.data.success && Array.isArray(eventsResponse.data.data)) {
+          setEvents(eventsResponse.data.data);
+        }
       } else {
-        setEvents([]);
+        throw new Error(response.data.message || 'Registration failed');
       }
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to register for event');
       console.error('Register event error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to register for event';
+      setError(errorMessage);
+      setSuccessMessage(null);
     } finally {
       setLoading(false);
     }

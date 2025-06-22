@@ -23,6 +23,16 @@ router.post(
   eventController.registerGuest
 );
 
+// @desc    Member registration for event
+// @route   POST /api/events/:id/register
+// @access  Private (Members)
+router.post(
+  '/:id/register',
+  protect,
+  authorize('Member'),
+  eventController.registerMember
+);
+
 
 // @desc    Create a new event
 // @route   POST /api/events

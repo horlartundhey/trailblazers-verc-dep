@@ -415,7 +415,10 @@ exports.deleteEvent = async (req, res) => {
 // @access  Private (Members only)
 exports.registerForEvent = async (req, res) => {
   try {
-    let event = await Event.findById(req.params.id);
+    // First, get the event without validation
+    let event = await Event.findById(req.params.id)
+      .select('regions campuses registrationStartDate registrationEndDate capacity registeredMembers guestRegistrations')
+      .lean();
     
     if (!event) {
       return res.status(404).json({
@@ -441,16 +444,95 @@ exports.registerForEvent = async (req, res) => {
         message: 'Only members can register for events'
       });
     }
+
+    // Check if already registered
+    const existingRegistration = event.registeredMembers?.find(
+      m => m.memberId?.toString() === req.user._id.toString()
+    );
     
-    // Register for the event
-    const status = event.registerMember(req.user._id);
-    await event.save();
+    if (existingRegistration && existingRegistration.status !== 'Cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already registered for this event'
+      });
+    }
+
+    // Check registration period
+    const now = new Date();
+    if (now < new Date(event.registrationStartDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration has not started yet'
+      });
+    }
+    if (now > new Date(event.registrationEndDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration is closed'
+      });
+    }
+
+    // Count confirmed registrations
+    const confirmedMembers = (event.registeredMembers || []).filter(
+      m => m.status === 'Confirmed'
+    ).length;
     
+    const confirmedGuests = (event.guestRegistrations || []).filter(
+      g => g.status === 'Confirmed'
+    ).length;
+    
+    const totalConfirmed = confirmedMembers + confirmedGuests;
+    const status = totalConfirmed >= event.capacity ? 'Waitlisted' : 'Confirmed';
+
+    let result;
+    if (existingRegistration) {
+      // Update existing registration
+      result = await Event.findOneAndUpdate(
+        { 
+          _id: event._id,
+          'registeredMembers.memberId': req.user._id
+        },
+        { 
+          $set: {
+            'registeredMembers.$.status': status,
+            'registeredMembers.$.registrationDate': now
+          }
+        },
+        { new: true }
+      ).select('registeredMembers');
+    } else {
+      // Add new registration
+      result = await Event.findByIdAndUpdate(
+        event._id,
+        {
+          $push: {
+            registeredMembers: {
+              memberId: req.user._id,
+              status,
+              registrationDate: now
+            }
+          }
+        },
+        { new: true }
+      ).select('registeredMembers');
+    }
+
+    if (!result) {
+      throw new Error('Failed to update registration');
+    }
+
+    // Find the updated registration
+    const updatedRegistration = result.registeredMembers.find(
+      m => m.memberId.toString() === req.user._id.toString()
+    );
+
     res.json({
       success: true,
       data: {
-        status,
-        message: `Registration ${status === 'Confirmed' ? 'confirmed' : 'added to waitlist'}`
+        status: updatedRegistration.status,
+        message: updatedRegistration.status === 'Confirmed'
+          ? 'You are now registered for this event'
+          : 'You have been added to the waitlist'
       }
     });
   } catch (error) {
@@ -579,8 +661,7 @@ exports.registerGuest = async (req, res) => {
         message: 'Name and email are required'
       });
     }
-    
-    // Create a guest registration entry
+      // Create a guest registration entry
     // First, check if this guest is already registered
     const existingRegistration = event.guestRegistrations.find(
       guest => guest.email.toLowerCase() === email.toLowerCase()
@@ -593,11 +674,14 @@ exports.registerGuest = async (req, res) => {
       });
     }
     
-    // Register the guest
-    let registrationStatus = 'Confirmed';
-    
     // Check if the event is at capacity
-    const confirmedCount = event.registeredMembers.filter(m => m.status === 'Confirmed').length + 
+    const confirmedMembers = event.registeredMembers.filter(m => m.status === 'Confirmed').length;
+    const confirmedGuests = event.guestRegistrations.filter(g => g.status === 'Confirmed').length;
+    const totalConfirmed = confirmedMembers + confirmedGuests;
+    
+    // Register the guest with appropriate status
+    const guestStatus = totalConfirmed >= event.capacity ? 'Waitlisted' : 'Confirmed';
+    
                          event.guestRegistrations.filter(g => g.status === 'Confirmed').length;
     
     if (confirmedCount >= event.capacity) {
@@ -773,6 +857,110 @@ exports.exportAttendance = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to export attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Register a member for an event
+// @route   POST /api/events/:id/register
+// @access  Private (Members)
+exports.registerMember = async (req, res) => {
+  try {
+    console.log('Member registration attempt:', {
+      eventId: req.params.id,
+      userId: req.user._id,
+      userRole: req.user.role
+    });
+
+    const event = await Event.findById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if registration period is valid
+    const now = new Date();
+    const regStartDate = new Date(event.registrationStartDate);
+    const regEndDate = new Date(event.registrationEndDate);
+
+    if (now < regStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration period has not started yet'
+      });
+    }
+
+    if (now > regEndDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration period has ended'
+      });
+    }
+
+    // Check if user is already registered
+    const existingRegistration = event.registeredMembers.find(
+      registration => registration.memberId.toString() === req.user._id.toString()
+    );
+
+    if (existingRegistration) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already registered for this event'
+      });
+    }
+
+    // Check if event is specific to regions/campuses
+    if (event.regions.length > 0 && !event.regions.includes(req.user.region)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is not available for your region'
+      });
+    }
+
+    if (event.campuses.length > 0 && !event.campuses.includes(req.user.campus)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is not available for your campus'
+      });
+    }
+
+    // Determine registration status based on capacity
+    const confirmedCount = event.registeredMembers.filter(m => m.status === 'Confirmed').length;
+    const registrationStatus = confirmedCount < event.capacity ? 'Confirmed' : 'Waitlisted';
+
+    // Add member to registrations
+    event.registeredMembers.push({
+      memberId: req.user._id,
+      status: registrationStatus,
+      registrationDate: now
+    });
+
+    await event.save();
+    
+    console.log('Registration successful:', {
+      eventId: event._id,
+      userId: req.user._id,
+      status: registrationStatus
+    });
+
+    res.json({
+      success: true,
+      data: {
+        status: registrationStatus,
+        message: registrationStatus === 'Confirmed' 
+          ? 'You are successfully registered for the event!' 
+          : 'You have been added to the waitlist.'
+      }
+    });
+  } catch (error) {
+    console.error('Member registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register for event',
       error: error.message
     });
   }

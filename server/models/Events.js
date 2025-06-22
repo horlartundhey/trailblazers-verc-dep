@@ -155,6 +155,15 @@ EventSchema.virtual('isFull').get(function() {
 
 // Methods to manage registration
 EventSchema.methods.registerMember = function(memberId) {
+  // First, check if registration is open
+  const now = new Date();
+  if (now < this.registrationStartDate) {
+    throw new Error('Registration has not started yet');
+  }
+  if (now > this.registrationEndDate) {
+    throw new Error('Registration is closed');
+  }
+
   // Check if already registered
   const existingRegistration = this.registeredMembers.find(
     m => m.memberId.toString() === memberId.toString()
@@ -166,15 +175,19 @@ EventSchema.methods.registerMember = function(memberId) {
       existingRegistration.registrationDate = Date.now();
       return existingRegistration.status;
     }
-    return existingRegistration.status; // Already registered
+    throw new Error('You are already registered for this event');
   }
 
-   // Add to guestRegistrations count for capacity check
-   const guestConfirmedCount = this.guestRegistrations.filter(
+  // Check confirmed registrations
+  const confirmedMembers = this.registeredMembers.filter(
+    m => m.status === 'Confirmed'
+  ).length;
+  
+  const guestConfirmed = this.guestRegistrations.filter(
     guest => guest.status === 'Confirmed'
   ).length;
   
-  const totalConfirmed = confirmedCount + guestConfirmedCount;
+  const totalConfirmed = confirmedMembers + guestConfirmed;
 
   // Check if at capacity
   let status = 'Confirmed';
@@ -182,7 +195,7 @@ EventSchema.methods.registerMember = function(memberId) {
     status = 'Waitlisted';
   }
   
-  // New registration  
+  // Add new registration  
   this.registeredMembers.push({
     memberId,
     status,
