@@ -1,19 +1,8 @@
 const path = require('path');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
-const nodemailer = require('nodemailer');
+const { sendWelcomeEmail } = require('../utils/emailService');
 const jwt = require('jsonwebtoken');
-
-// Email transporter setup
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false, // Use TLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
 
 // Fetch regions and campuses
 exports.getRegionsAndCampuses = async (req, res) => {
@@ -198,9 +187,17 @@ exports.createUser = async (req, res) => {
       });
     }
 
+    // Validate region and campus for non-Admin roles
+    if (role !== 'Admin' && (!region || !campus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Region and campus are required for Leaders and Members'
+      });
+    }
+
     // For Member role, find a Leader in the same region and campus
     let leaderId = null;
-    if (role === 'Member' && region && campus) {
+    if (role === 'Member') {
       const leader = await User.findOne({
         role: 'Leader',
         region,
@@ -212,9 +209,14 @@ exports.createUser = async (req, res) => {
       } else {
         return res.status(400).json({
           success: false,
-          message: 'No leader found for the selected region and campus'
+          message: 'No leader found for the selected region and campus. Please create a leader first.'
         });
       }
+    }
+
+    // For Leader role, validate position if provided
+    if (role === 'Leader' && req.body.position) {
+      // Position will be added to the user object
     }
 
     // Create user
@@ -226,11 +228,27 @@ exports.createUser = async (req, res) => {
       region: role === 'Admin' ? undefined : region,
       campus: role === 'Admin' ? undefined : campus,
       leaderId: role === 'Member' ? leaderId : undefined,
+      position: role === 'Leader' ? req.body.position : undefined,
       registrationStatus: role === 'Member' ? 'Pending' : 'Completed'
     });
 
+    // Send welcome email with temporary password
+    try {
+      const emailResult = await sendWelcomeEmail(user, password);
+      if (emailResult.success) {
+        console.log('Welcome email sent successfully to:', user.email);
+      } else {
+        console.error('Failed to send welcome email:', emailResult.error);
+        // Don't fail user creation if email fails
+      }
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+      // Continue with success response even if email fails
+    }
+
     res.status(201).json({
       success: true,
+      message: `${role} created successfully!`,
       data: {
         _id: user._id,
         name: user.name,
@@ -239,14 +257,25 @@ exports.createUser = async (req, res) => {
         region: user.region,
         campus: user.campus,
         memberCode: user.memberCode,
+        position: user.position,
         registrationStatus: user.registrationStatus
       }
     });
   } catch (error) {
     console.error('Create user error:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create user';
+    if (error.code === 11000) {
+      errorMessage = 'A user with this email already exists';
+    } else if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      errorMessage = validationErrors.join(', ');
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create user',
+      message: errorMessage,
       error: error.message
     });
   }

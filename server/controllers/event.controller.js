@@ -1,6 +1,7 @@
 const Event = require('../models/Events');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
+const { sendEventNotification } = require('../utils/emailService');
 
 const fs = require('fs');
 const cloudinary = require('../utils/cloudinary');
@@ -31,6 +32,33 @@ exports.createEvent = async (req, res) => {
       campuses 
     } = req.body;
     let imageUrl = null;
+
+    // Parse regions and campuses if they're strings (from FormData)
+    let parsedRegions = regions;
+    let parsedCampuses = campuses;
+    
+    console.log('CREATE - Raw regions:', regions, 'Type:', typeof regions);
+    console.log('CREATE - Raw campuses:', campuses, 'Type:', typeof campuses);
+    
+    if (typeof regions === 'string') {
+      try {
+        parsedRegions = JSON.parse(regions);
+        console.log('CREATE - Parsed regions:', parsedRegions);
+      } catch (e) {
+        console.log('CREATE - Failed to parse regions:', e.message);
+        parsedRegions = regions ? [regions] : [];
+      }
+    }
+    
+    if (typeof campuses === 'string') {
+      try {
+        parsedCampuses = JSON.parse(campuses);
+        console.log('CREATE - Parsed campuses:', parsedCampuses);
+      } catch (e) {
+        console.log('CREATE - Failed to parse campuses:', e.message);
+        parsedCampuses = campuses ? [campuses] : [];
+      }
+    }
 
     // Handle image upload
     if (req.file) {
@@ -99,17 +127,53 @@ exports.createEvent = async (req, res) => {
       registrationEndDate: regEndDate,
       location,
       capacity,
-      regions: regions || [],
-      campuses: campuses || [],
+      regions: parsedRegions || [],
+      campuses: parsedCampuses || [],
       createdBy: req.user._id,
       image: imageUrl
     });
 
     await event.save();
 
-    // Clean up local file in dev
-    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
-      fs.unlinkSync(req.file.path);
+    // Note: In development, we keep the file on disk to serve it
+    // In production, file is in memory only and goes to Cloudinary
+
+    // Send event notifications to eligible users
+    try {
+      // Find users who should receive notification based on regions and campuses
+      let notificationQuery = {};
+      
+      if (event.regions && event.regions.length > 0) {
+        notificationQuery.region = { $in: event.regions };
+      }
+      
+      if (event.campuses && event.campuses.length > 0) {
+        notificationQuery.campus = { $in: event.campuses };
+      }
+      
+      // If no specific regions/campuses, notify all users
+      const eligibleUsers = await User.find(notificationQuery).select('email');
+      const recipientEmails = eligibleUsers.map(user => user.email);
+      
+      if (recipientEmails.length > 0) {
+        const emailResult = await sendEventNotification(recipientEmails, {
+          title: event.name,
+          description: event.description,
+          date: event.date,
+          location: event.location,
+          registrationLink: `${process.env.CLIENT_URL || 'http://localhost:5173'}/events/${event._id}`
+        });
+        
+        if (emailResult.success) {
+          console.log(`Event notifications sent to ${emailResult.recipientCount} users`);
+        } else {
+          console.error('Failed to send event notifications:', emailResult.error);
+          // Don't fail event creation if emails fail
+        }
+      }
+    } catch (emailError) {
+      console.error('Error sending event notifications:', emailError);
+      // Continue with success response even if email fails
     }
 
     res.status(201).json({
@@ -315,7 +379,38 @@ exports.updateEvent = async (req, res) => {
     const { name, description, date, location, capacity, regions, campuses } = req.body;
     let imageUrl = event.image;
 
+    // Parse regions and campuses if they're strings (from FormData)
+    let parsedRegions = regions;
+    let parsedCampuses = campuses;
+    
+    console.log('UPDATE - Raw regions:', regions, 'Type:', typeof regions);
+    console.log('UPDATE - Raw campuses:', campuses, 'Type:', typeof campuses);
+    
+    if (typeof regions === 'string') {
+      try {
+        parsedRegions = JSON.parse(regions);
+        console.log('UPDATE - Parsed regions:', parsedRegions);
+      } catch (e) {
+        console.log('UPDATE - Failed to parse regions:', e.message);
+        parsedRegions = regions ? [regions] : [];
+      }
+    }
+    
+    if (typeof campuses === 'string') {
+      try {
+        parsedCampuses = JSON.parse(campuses);
+        console.log('UPDATE - Parsed campuses:', parsedCampuses);
+      } catch (e) {
+        console.log('UPDATE - Failed to parse campuses:', e.message);
+        parsedCampuses = campuses ? [campuses] : [];
+      }
+    }
+
     // Handle image upload
+    console.log('Update event - req.file:', req.file);
+    console.log('Update event - req.body.image:', req.body.image);
+    console.log('Update event - current event.image:', event.image);
+    
     if (req.file) {
       if (process.env.NODE_ENV === 'production') {
         await new Promise((resolve, reject) => {
@@ -330,9 +425,13 @@ exports.updateEvent = async (req, res) => {
           stream.end(req.file.buffer);
         });
       } else {
-        imageUrl = req.body.image || event.image;
+        // In dev, the middleware already set req.body.image to the file path
+        imageUrl = req.body.image;
+        console.log('Update event - new imageUrl from req.body.image:', imageUrl);
       }
     }
+    
+    console.log('Update event - final imageUrl to save:', imageUrl);
 
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
@@ -343,26 +442,23 @@ exports.updateEvent = async (req, res) => {
         location,
         capacity,
         image: imageUrl,
-        regions: regions || event.regions,
-        campuses: campuses || event.campuses,
+        regions: parsedRegions || event.regions,
+        campuses: parsedCampuses || event.campuses,
         updatedAt: Date.now()
       },
       { new: true, runValidators: true }
     );
 
-    // Clean up local file in dev
-    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
-      fs.unlinkSync(req.file.path);
-    }
+    // Note: In development, we keep the file on disk to serve it
+    // In production, file is in memory only and goes to Cloudinary
 
     res.json({
       success: true,
       data: updatedEvent
     });
   } catch (error) {
-    if (req.file && req.file.path && process.env.NODE_ENV !== 'production') {
-      fs.unlinkSync(req.file.path);
-    }
+    // Only clean up file on error in production (memory storage)
+    // In development, keep the file even on error for debugging
     console.error('Update event error:', error);
     res.status(500).json({
       success: false,

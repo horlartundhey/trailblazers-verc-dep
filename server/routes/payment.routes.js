@@ -4,12 +4,15 @@ const { check } = require('express-validator');
 const router = express.Router();
 const paymentController = require('../controllers/payment.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
+const uploadPaymentProof = require('../utils/uploadPaymentProof');
 
 // Record a new payment (Admin only)
 router.post(
   '/',
   protect,
-  authorize('Admin'),  [
+  authorize('Admin'),
+  uploadPaymentProof.single('proofOfPayment'), // Add file upload middleware
+  [
     check('userId', 'User ID is required').not().isEmpty(),
     check('amount', 'Amount is required and must be a positive number').isFloat({ min: 0 }),
     check('currency', 'Currency must be either NGN or USD').isIn(['NGN', 'USD']),

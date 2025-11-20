@@ -7,6 +7,7 @@ import { getCurrentUser } from './redux/slices/authSlice';
 import Login from './components/auth/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import AttendanceDashboard from './pages/admin/AttendanceDashboard';
+import RegionCampusManagement from './pages/admin/RegionCampusManagement';
 import LeaderDashboard from './pages/leader/Dashboard';
 import MemberDashboard from './pages/member/Dashboard';
 import CompleteRegistration from './pages/member/CompleteRegistration';
@@ -78,6 +79,7 @@ const AppContent = () => {
       {/* Protected routes with role-based access */}
       <Route element={<PrivateRoute allowedRoles={['Admin']} />}>
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/region-campus" element={<RegionCampusManagement />} />
       </Route>
       
       <Route element={<PrivateRoute allowedRoles={['Leader']} />}>

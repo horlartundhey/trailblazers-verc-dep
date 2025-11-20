@@ -61,6 +61,16 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  expectedMonthlyPayment: {
+    type: Number,
+    default: 0,
+    min: [0, 'Expected payment cannot be negative']
+  },
+  currency: {
+    type: String,
+    enum: ['NGN', 'USD', 'EUR', 'GBP'],
+    default: 'NGN'
+  },
   registrationStatus: {
     type: String,
     enum: ['Pending', 'Completed'],

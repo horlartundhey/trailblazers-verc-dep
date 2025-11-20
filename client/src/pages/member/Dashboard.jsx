@@ -227,16 +227,16 @@ const EventCard = ({ event, onRegister, userId }) => {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{event.name}</h3>
           <p className="text-sm text-gray-500">
-            {new Date(event.date).toLocaleDateString('en-US', {
+            {event.date ? new Date(event.date).toLocaleDateString('en-US', {
               weekday: 'short',
               year: 'numeric',
               month: 'short',
               day: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
-            })}
+            }) : 'Date to be announced'}
           </p>
-          <p className="text-sm text-gray-600">{event.location}</p>
+          <p className="text-sm text-gray-600">{event.location || 'Location TBD'}</p>
           <p className="mt-2 text-gray-700">{event.description}</p>
         </div>
         <div className="flex items-center justify-between">
@@ -271,7 +271,9 @@ const MemberDashboard = () => {
   const [payments, setPayments] = useState([]);
   const [paymentStats, setPaymentStats] = useState({
     totalContributions: 0,
-    monthlyBreakdown: {}
+    totalsByMonth: {},
+    totalsByMonthAndCurrency: {},
+    totalsByCurrency: {}
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -287,12 +289,18 @@ const MemberDashboard = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        setLoading(true);
+        if (!user) {
+          navigate('/login');
+          return;
+        }
         const response = await API.get('/api/auth/me');
         setProfile(response.data.data);
       } catch (error) {
-        setError('Failed to load profile');
-        console.error(error);
+        console.error('Fetch profile error:', error);
+        if (error.response?.status === 401) {
+          dispatch(logout());
+          navigate('/login');
+        }
       }
     };
 
@@ -323,11 +331,34 @@ const MemberDashboard = () => {
       try {
         const response = await API.get('/api/payments/me');
         setPayments(response.data.data || []);
-        const total = response.data.totalContributions || 0;
-        const breakdown = response.data.monthlyBreakdown || {};
+        
+        // Process payments by currency
+        const totalsByCurrency = {};
+        const totalsByMonth = {};
+        const totalsByMonthAndCurrency = {};
+
+        (response.data.data || []).forEach(payment => {
+          const currency = payment.currency || 'USD';
+          const month = payment.month;
+          
+          // Update totals by currency
+          totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
+          
+          // Update totals by month
+          totalsByMonth[month] = (totalsByMonth[month] || 0) + payment.amount;
+          
+          // Update totals by month and currency
+          if (!totalsByMonthAndCurrency[month]) {
+            totalsByMonthAndCurrency[month] = {};
+          }
+          totalsByMonthAndCurrency[month][currency] = 
+            (totalsByMonthAndCurrency[month][currency] || 0) + payment.amount;
+        });
+
         setPaymentStats({
-          totalContributions: total,
-          monthlyBreakdown: breakdown
+          totalsByMonth,
+          totalsByMonthAndCurrency,
+          totalsByCurrency
         });
       } catch (error) {
         console.error('Error fetching payments:', error);
@@ -338,7 +369,7 @@ const MemberDashboard = () => {
       Promise.all([fetchProfile(), fetchEvents(), fetchPayments()])
         .finally(() => setLoading(false));
     }
-  }, [user]);
+  }, [user, navigate, dispatch]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -630,12 +661,12 @@ const MemberDashboard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <StatCard 
                   title="Total Contributions" 
-                  value={`N${paymentStats.totalContributions.toLocaleString()}`} 
+                  value={`N${(paymentStats?.totalContributions || 0).toLocaleString()}`} 
                   bgColor="bg-indigo-600" 
                 />
                 <StatCard 
                   title="Upcoming Events" 
-                  value={events.filter(e => new Date(e.date) > new Date()).length} 
+                  value={events.filter(e => e.date && new Date(e.date) > new Date()).length} 
                   bgColor="bg-green-600" 
                 />
                 <StatCard 
@@ -659,7 +690,7 @@ const MemberDashboard = () => {
                 <div className="space-y-4">
                   {events.length > 0 ? (
                     events
-                      .filter(event => new Date(event.date) > new Date())
+                      .filter(event => event.date && new Date(event.date) > new Date())
                       .sort((a, b) => new Date(a.date) - new Date(b.date))
                       .map(event => (
                         <EventCard 
@@ -687,7 +718,7 @@ const MemberDashboard = () => {
                 <div className="space-y-4">
                   {events.length > 0 ? (
                     events
-                      .filter(event => new Date(event.date) <= new Date())
+                      .filter(event => event.date && new Date(event.date) <= new Date())
                       .sort((a, b) => new Date(b.date) - new Date(a.date))
                       .map(event => (
                         <div key={event._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition duration-200">
@@ -695,7 +726,7 @@ const MemberDashboard = () => {
                             <div>
                               <h4 className="text-sm font-medium text-gray-900">{event.name}</h4>
                               <p className="text-sm text-gray-500 mt-1">
-                                {new Date(event.date).toLocaleDateString()} at {event.location}
+                                {event.date ? new Date(event.date).toLocaleDateString() : 'Date TBD'} at {event.location || 'Location TBD'}
                               </p>
                             </div>
                             <span className={`px-2 py-1 text-xs rounded-full ${
@@ -718,23 +749,24 @@ const MemberDashboard = () => {
                 </div>
               </div>
             </div>
-          )};
-          {/* Payments Tab */}
+          )};          {/* Payments Tab */}
             {activeTab === 'payments' && (
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">My Payment History</h3>
                 <p className="text-sm text-gray-500 mb-6">Your contribution records and history</p>
                 
-                {/* Summary Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-indigo-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-indigo-800">Total Contributions</h4>
-                    <p className="mt-1 text-2xl font-bold text-indigo-900">
-                      ${paymentStats.totalContributions.toLocaleString()}
-                    </p>
-                  </div>
+                {/* Summary Stats by Currency */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {Object.entries(paymentStats.totalsByCurrency).map(([currency, total]) => (
+                    <div key={currency} className="bg-indigo-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-indigo-800">Total in {currency}</h4>
+                      <p className="mt-1 text-2xl font-bold text-indigo-900">
+                        {currency} {total.toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
                   <div className="bg-green-50 p-4 rounded-lg">
-                    <h4 className="text-sm font-medium text-green-800">Payments Count</h4>
+                    <h4 className="text-sm font-medium text-green-800">Total Payments</h4>
                     <p className="mt-1 text-2xl font-bold text-green-900">
                       {payments.length}
                     </p>
@@ -749,18 +781,21 @@ const MemberDashboard = () => {
                 
                 {/* Monthly Breakdown */}
                 <h4 className="text-lg font-semibold text-gray-900 mb-4">Monthly Breakdown</h4>
-                {Object.keys(paymentStats.monthlyBreakdown).length > 0 ? (
+                {Object.keys(paymentStats.totalsByMonthAndCurrency).length > 0 ? (
                   <div className="bg-gray-50 rounded-lg p-4 mb-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {Object.entries(paymentStats.monthlyBreakdown)
-                        .map(([month, amount]) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Object.entries(paymentStats.totalsByMonthAndCurrency)
+                        .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                        .map(([month, currencyTotals]) => (
                           <div key={month} className="bg-white p-4 rounded-lg shadow-sm">
-                            <h5 className="text-sm font-medium text-gray-700">
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">
                               {parseAndFormatMonth(month)}
                             </h5>
-                            <p className="text-green-600 font-bold mt-1">
-                              ${amount.toLocaleString()}
-                            </p>
+                            {Object.entries(currencyTotals).map(([currency, amount]) => (
+                              <p key={currency} className="text-green-600 font-bold">
+                                {currency} {amount.toLocaleString()}
+                              </p>
+                            ))}
                           </div>
                         ))}
                     </div>
@@ -778,8 +813,10 @@ const MemberDashboard = () => {
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recorded By</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -789,7 +826,13 @@ const MemberDashboard = () => {
                               {parseAndFormatMonth(payment.month)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                              ${payment.amount.toLocaleString()}
+                              {payment.currency} {payment.amount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {payment.paymentMethod || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {payment.description || 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {payment.recordedBy?.name || 'System'}

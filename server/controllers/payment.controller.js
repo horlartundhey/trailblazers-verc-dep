@@ -9,10 +9,11 @@ const { validationResult } = require('express-validator');
 exports.recordPayment = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.error('Validation errors:', errors.array());
     return res.status(400).json({ 
       success: false, 
       errors: errors.array(),
-      message: 'Validation error'
+      message: errors.array()[0].msg || 'Validation error'
     });
   }
 
@@ -20,11 +21,39 @@ exports.recordPayment = async (req, res) => {
     console.log('Received payment data:', req.body);
     const { userId, amount, currency, date, description, paymentMethod } = req.body;
 
-    if (!userId || !amount || !currency || !date || !paymentMethod) {
-      console.error('Missing required fields:', { userId, amount, currency, date, paymentMethod });
+    // Validate required fields
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields'
+        message: 'User ID is required'
+      });
+    }
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount is required'
+      });
+    }
+
+    if (!currency) {
+      return res.status(400).json({
+        success: false,
+        message: 'Currency is required'
+      });
+    }
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment date is required'
+      });
+    }
+
+    if (!paymentMethod || paymentMethod.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment method is required'
       });
     }
 
@@ -40,13 +69,20 @@ exports.recordPayment = async (req, res) => {
 
     const paymentData = {
       userId,
-      amount,
+      amount: parseFloat(amount),
       currency,
-      date,
-      paymentMethod,
-      description,
+      date: new Date(date),
+      paymentMethod: paymentMethod.toLowerCase().trim(),
+      description: description?.trim() || '',
       recordedBy: req.user.id
     };
+
+    // Add proof of payment if file was uploaded
+    if (req.file) {
+      // If using Cloudinary, upload the file and use the secure_url
+      // For now, store the file path
+      paymentData.proofOfPayment = `/uploads/payment-proofs/${req.file.filename}`;
+    }
 
     console.log('Creating payment with data:', paymentData);
 
@@ -62,10 +98,19 @@ exports.recordPayment = async (req, res) => {
     });
   } catch (error) {
     console.error('Record payment error:', error);
-    // Send more detailed error information
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to record payment';
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      errorMessage = validationErrors.join(', ');
+    } else if (error.name === 'CastError') {
+      errorMessage = 'Invalid user ID format';
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to record payment',
+      message: errorMessage,
       error: {
         message: error.message,
         code: error.code,

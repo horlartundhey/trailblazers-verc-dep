@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import axios from 'axios';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../../redux/slices/authSlice';
@@ -31,6 +30,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [events, setEvents] = useState([]);  const [selectedEvent, setSelectedEvent] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [eventTab, setEventTab] = useState('details');
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
 
 
 
@@ -52,33 +52,39 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const navigate = useNavigate();
   const { user } = useSelector(state => state.auth);
   
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch all users
-        const usersResponse = await API.get('/api/users');
-        console.log('API Response:', usersResponse);
-        const userData = usersResponse.data.data || [];
-        setUsers(userData);
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all users
+      const usersResponse = await API.get('/api/users');
+      console.log('API Response:', usersResponse);
+      const userData = usersResponse.data.data || [];
+      setUsers(userData);
 
-        const eventsResponse = await API.get('/api/events');
+      const eventsResponse = await API.get('/api/events');
       const eventsData = eventsResponse.data.data || [];
       setEvents(eventsData);
       
       // Fetch payments (assuming you have an endpoint for this)
       const paymentsResponse = await API.get('/api/payments');
       const paymentsData = paymentsResponse.data.data || [];
+      
+      // Fetch regions and campuses from RegionCampus management
+      const [regionsResponse, campusesResponse] = await Promise.all([
+        API.get('/api/region-campus/regions'),
+        API.get('/api/region-campus/campuses')
+      ]);
+      const regionsData = regionsResponse.data.data || [];
+      const campusesData = campusesResponse.data.data || [];
         
-        
-        // Calculate dashboard statistics from user data
-        const totalMembers = userData.filter(user => user.role === 'Member').length;
-        const totalLeaders = userData.filter(user => user.role === 'Leader').length;
-        const pendingMembers = userData.filter(user => 
-          user.role === 'Member' && user.registrationStatus === 'Pending').length;
-        const completedMembers = userData.filter(user => 
-          user.role === 'Member' && user.registrationStatus === 'Completed').length;
+      // Calculate dashboard statistics from user data
+      const totalMembers = userData.filter(user => user.role === 'Member').length;
+      const totalLeaders = userData.filter(user => user.role === 'Leader').length;
+      const pendingMembers = userData.filter(user => 
+        user.role === 'Member' && user.registrationStatus === 'Pending').length;
+      const completedMembers = userData.filter(user => 
+        user.role === 'Member' && user.registrationStatus === 'Completed').length;
       // Calculate total events
       const totalEvents = eventsData.length;
       
@@ -91,70 +97,50 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         .filter(payment => payment.currency === 'USD')
         .reduce((sum, payment) => sum + (payment.amount || 0), 0);
         
-      // Extract regions and create region stats
-        const regionData = {};
-        userData.forEach(user => {
-          if (user.region) {
-            if (!regionData[user.region]) {
-              regionData[user.region] = {
-                _id: user.region,
-                name: user.region,
-                memberCount: 0
-              };
-            }
-            regionData[user.region].memberCount += 1;
-          }
-        });
+      // Use RegionCampus data for stats with user counts
+      const regionStats = regionsData.map(region => ({
+        _id: region._id,
+        name: region.name,
+        memberCount: region.userCount || 0
+      }));
+      
+      const campusStats = campusesData.map(campus => ({
+        _id: campus._id,
+        name: campus.name,
+        memberCount: campus.userCount || 0
+      }));
+      
+      setStats({
+        totalMembers,
+        totalLeaders,
+        pendingMembers,
+        completedMembers,
+        totalEvents,
+        totalPaymentsNGN,
+        totalPaymentsUSD,
+        regions: regionStats,
+        campuses: campusStats
+      });
         
-        // Extract campuses and create campus stats
-        const campusData = {};
-        userData.forEach(user => {
-          if (user.campus) {
-            if (!campusData[user.campus]) {
-              campusData[user.campus] = {
-                _id: user.campus,
-                name: user.campus,
-                memberCount: 0
-              };
-            }
-            campusData[user.campus].memberCount += 1;
-          }
-        });
-          setStats({
-          totalMembers,
-          totalLeaders,
-          pendingMembers,
-          completedMembers,
-          totalEvents,
-          totalPaymentsNGN,
-          totalPaymentsUSD,
-          regions: Object.values(regionData) || [],
-          campuses: Object.values(campusData) || []
-        });
-        
-        // Extract unique regions and campuses for filtering
-        const uniqueRegions = [...new Set(userData
-          .filter(user => user.region)
-          .map(user => user.region))];
+      // Set all regions and campuses for filtering (from RegionCampus collection)
+      const allRegionNames = regionsData.map(r => r.name);
+      const allCampusNames = campusesData.map(c => c.name);
           
-        const uniqueCampuses = [...new Set(userData
-          .filter(user => user.campus)
-          .map(user => user.campus))];
-          
-        setRegions(uniqueRegions);
-        setCampuses(uniqueCampuses);
+      setRegions(allRegionNames);
+      setCampuses(allCampusNames);
         
-        setError(null);
-      } catch (err) {
-        setError('Failed to load dashboard data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchDashboardData();
+      setError(null);
+    } catch (err) {
+      setError('Failed to load dashboard data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleCreateEvent = async (eventData) => {
     try {
@@ -178,7 +164,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         // Append all event data fields
         Object.keys(eventPayload).forEach(key => {
           if (key !== 'imageFile') {
-            formData.append(key, eventPayload[key]);
+            // Handle arrays specially
+            if (Array.isArray(eventPayload[key])) {
+              formData.append(key, JSON.stringify(eventPayload[key]));
+            } else {
+              formData.append(key, eventPayload[key]);
+            }
           }
         });
         
@@ -196,12 +187,15 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         
         // Show success message
         setSuccessMessage('Event created successfully!');
+        // Switch back to events tab
+        setActiveTab('events');
       } else {
         // If no image, proceed with regular JSON post
         const response = await API.post('/api/events', eventPayload);
         
         setEvents(prevEvents => [...prevEvents, response.data.data]);
         setSuccessMessage('Event created successfully!');
+        setActiveTab('events');
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to create event';
@@ -224,23 +218,67 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   };
 
   // New function to update an event
-  const handleUpdateEvent = async (eventId, eventData) => {
+  const handleUpdateEvent = async (eventData) => {
     try {
       setLoading(true);
-      const response = await API.put(`/api/events/${eventId}`, eventData);
+      setErrorMessage('');
+      setSuccessMessage('');
       
-      // Update the events list
-      setEvents(prevEvents => 
-        prevEvents.map(event => 
-          event._id === eventId ? response.data.data : event
-        )
-      );
+      const eventId = selectedEvent._id;
+      
+      // If an image file is present, create a FormData object
+      if (eventData.imageFile) {
+        const formData = new FormData();
+        
+        // Append all event data fields
+        Object.keys(eventData).forEach(key => {
+          if (key !== 'imageFile') {
+            // Handle arrays specially
+            if (Array.isArray(eventData[key])) {
+              formData.append(key, JSON.stringify(eventData[key]));
+            } else {
+              formData.append(key, eventData[key]);
+            }
+          }
+        });
+        
+        // Append the image file
+        formData.append('image', eventData.imageFile);
+  
+        const response = await API.put(`/api/events/${eventId}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        // Update the events list
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event._id === eventId ? response.data.data : event
+          )
+        );
+        setSuccessMessage('Event updated successfully!');
+        setIsEditingEvent(false);
+        setActiveTab('events');
+      } else {
+        const response = await API.put(`/api/events/${eventId}`, eventData);
+        
+        // Update the events list
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event._id === eventId ? response.data.data : event
+          )
+        );
+        setSuccessMessage('Event updated successfully!');
+        setIsEditingEvent(false);
+        setActiveTab('events');
+      }
       
       // Show success message
-      setSuccess('Event updated successfully!');
+      setSuccessMessage('Event updated successfully!');
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to update event';
-      setError(errorMsg);
+      setErrorMessage(errorMsg);
       console.error(err);
     } finally {
       setLoading(false);
@@ -257,10 +295,10 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       setEvents(prevEvents => prevEvents.filter(event => event._id !== eventId));
       
       // Show success message
-      setSuccess('Event deleted successfully!');
+      setSuccessMessage('Event deleted successfully!');
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to delete event';
-      setError(errorMsg);
+      setErrorMessage(errorMsg);
       console.error(err);
     } finally {
       setLoading(false);
@@ -321,6 +359,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
     }
   };
   
+  // eslint-disable-next-line no-unused-vars
   const handleRegionCampusView = async (regionId, campusId) => {
     try {
       setLoading(true);
@@ -429,6 +468,16 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               onClick={() => setActiveTab('events')}
             >
               Events
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 ${
+                activeTab === 'regions' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } font-medium`}
+              onClick={() => navigate('/admin/region-campus')}
+            >
+              Regions & Campuses
             </button>
           </div>
         </div>
@@ -765,7 +814,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             </div>
             
             <div className="px-4 py-5 sm:p-6">
-              <UserForm />
+              <UserForm onUserCreated={fetchDashboardData} />
             </div>
           </div>
         )}
@@ -801,6 +850,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Image
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -820,6 +872,23 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {events.map(event => (
                     <tr key={event._id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {event.image ? (
+                          <img 
+                            src={event.image.startsWith('http://') || event.image.startsWith('https://') ? event.image : `http://localhost:5000${event.image}`} 
+                            alt={event.name}
+                            className="h-12 w-12 rounded object-cover"
+                            onError={(e) => {
+                              console.error('Image load error:', event.image);
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltZzwvdGV4dD48L3N2Zz4=';
+                            }}
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                            No Img
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{event.name}</div>
                       </td>
@@ -888,6 +957,36 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         </div>
       )}
       
+      {/* Edit Event Tab */}
+      {activeTab === 'editEvent' && isEditingEvent && selectedEvent && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
+            <h3 className="text-lg font-medium leading-6 text-gray-900">Edit Event</h3>
+            <button
+              onClick={() => {
+                setIsEditingEvent(false);
+                setSelectedEvent(null);
+                setActiveTab('events');
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="px-4 py-5 sm:p-6">
+            <EventForm 
+              onSubmit={handleUpdateEvent} 
+              regions={stats.regions.map(r => r.name)}
+              campuses={stats.campuses.map(c => c.name)}
+              initialData={selectedEvent}
+            />
+          </div>
+        </div>
+      )}
+      
     </main>
     {/* Event Modal - placed at the root level outside all tabs */}
       {showModal && selectedEvent && (
@@ -933,6 +1032,19 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
               {eventTab === 'details' ? (
                 <>
+                  {selectedEvent.image && (
+                    <div className="mb-6">
+                      <img 
+                        src={selectedEvent.image.startsWith('http://') || selectedEvent.image.startsWith('https://') ? selectedEvent.image : `http://localhost:5000${selectedEvent.image}`}
+                        alt={selectedEvent.name}
+                        className="w-full h-64 object-cover rounded-lg shadow-md"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-500">Name</p>
                     <p className="text-md text-gray-900">{selectedEvent.name}</p>
@@ -1063,9 +1175,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               </button>
               <button
                 onClick={() => {
-                  // Handle edit event logic here
-                  closeEventModal();
-                  // You could set a different state to open an edit form
+                  setIsEditingEvent(true);
+                  setShowModal(false); // Close modal but keep selectedEvent
+                  setActiveTab('editEvent');
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
               >
@@ -1110,6 +1222,17 @@ const ActionButton = ({ title, description, onClick }) => {
 
 // New Event Form Component
 const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
+  // Convert database path to full URL for preview
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath; // Already full URL
+    return `http://localhost:5000${imagePath}`; // Prepend base URL
+  };
+
+  console.log('EventForm initialData:', initialData);
+  console.log('EventForm initialData.image:', initialData.image);
+  console.log('EventForm getImageUrl result:', getImageUrl(initialData.image));
+
   const [formData, setFormData] = useState({    name: initialData.name || '',
     description: initialData.description || '',
     date: initialData.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
@@ -1125,7 +1248,7 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
     imageFile: null // Add state for file upload
   });
 
-  const [previewImage, setPreviewImage] = useState(initialData.image || null);
+  const [previewImage, setPreviewImage] = useState(getImageUrl(initialData.image));
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -1362,6 +1485,13 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
                 src={previewImage} 
                 alt="Preview" 
                 className="mx-auto h-32 w-auto object-cover rounded-md"
+                onError={(e) => {
+                  console.error('Image failed to load:', previewImage);
+                  e.target.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('Image loaded successfully:', previewImage);
+                }}
               />
             ) : (
               <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
@@ -1422,7 +1552,7 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
 
 
 // User Form Component
-const UserForm = () => {
+const UserForm = ({ onUserCreated }) => {
 
   const currentUserRole = useSelector((state) => state.auth.user?.role);
 
@@ -1436,7 +1566,8 @@ const UserForm = () => {
       region: '',
       campus: '',
       newRegion: '', // For adding a new region
-      newCampus: '' // For adding a new campus
+      newCampus: '', // For adding a new campus
+      position: '' // For Leader position
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -1444,13 +1575,16 @@ const UserForm = () => {
     const [regions, setRegions] = useState([]); // Fetched regions
     const [campuses, setCampuses] = useState([]); // Fetched campuses
   
-    // Fetch regions and campuses from the backend
+    // Fetch regions and campuses from RegionCampus management
     useEffect(() => {
       const fetchRegionsAndCampuses = async () => {
         try {
-          const response = await API.get('/api/users/regions-and-campuses');
-          setRegions(response.data.regions || []);
-          setCampuses(response.data.campuses || []);
+          const [regionsRes, campusesRes] = await Promise.all([
+            API.get('/api/region-campus/regions'),
+            API.get('/api/region-campus/campuses')
+          ]);
+          setRegions(regionsRes.data.data.map(r => r.name) || []);
+          setCampuses(campusesRes.data.data.map(c => c.name) || []);
         } catch (err) {
           setError('Failed to fetch regions and campuses');
           console.error(err);
@@ -1474,6 +1608,13 @@ const UserForm = () => {
       setSuccess(null);
   
       try {
+        // Validate Leader position
+        if (formData.role === 'Leader' && !formData.position) {
+          setError('Position is required for Leaders');
+          setLoading(false);
+          return;
+        }
+
         // Prepare payload
         const payload = {
           name: formData.name,
@@ -1488,12 +1629,15 @@ const UserForm = () => {
           if (formData.role === 'Leader') {
             payload.region = formData.newRegion || formData.region;
             payload.campus = formData.newCampus || formData.campus;
+            payload.position = formData.position.trim(); // Add position for Leader with trim
           } else {
             // For Member, must select existing region/campus
             payload.region = formData.region;
             payload.campus = formData.campus;
           }
         }
+
+        console.log('Submitting payload:', payload); // Debug log
   
         // Choose the correct endpoint based on the role being created
         let endpoint;
@@ -1505,12 +1649,17 @@ const UserForm = () => {
           endpoint = '/api/users';
         }
   
-        const response = await API.post(endpoint, payload);
+        await API.post(endpoint, payload);
   
         // Display success message and reset form
         setSuccess(`${formData.role} created successfully!${
           formData.role === 'Member' ? ' Registration status is Pending.' : ''
         }`);
+        
+        // Call parent callback to refresh dashboard data
+        if (onUserCreated) {
+          onUserCreated();
+        }
         
         // Reset form after successful submission
         setFormData({
@@ -1521,7 +1670,8 @@ const UserForm = () => {
           region: '',
           campus: '',
           newRegion: '',
-          newCampus: ''
+          newCampus: '',
+          position: ''
         });
       } catch (err) {
         const errorMsg = err.response?.data?.message || 
@@ -1676,6 +1826,27 @@ const UserForm = () => {
                 )}
               </div>
             </>
+          )}
+
+          {formData.role === 'Leader' && (
+            <div>
+              <label htmlFor="position" className="block text-sm font-medium text-gray-700">
+                Position <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="position"
+                name="position"
+                value={formData.position}
+                onChange={handleChange}
+                required
+                placeholder="e.g., Regional Coordinator, Campus Leader"
+                className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Specify the leadership position or title
+              </p>
+            </div>
           )}
         </div>
   

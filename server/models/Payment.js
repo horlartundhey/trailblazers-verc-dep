@@ -31,6 +31,11 @@ const PaymentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  proofOfPayment: {
+    type: String,
+    default: null,
+    trim: true
+  },
   recordedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

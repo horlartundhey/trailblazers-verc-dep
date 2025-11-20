@@ -170,31 +170,53 @@ const [paymentStats, setPaymentStats] = useState({
   const { user } = useSelector(state => state.auth);
   const [showProfile, setShowProfile] = useState(false);
 
-
   const fetchPayments = async () => {
-    try {
-      const response = await API.get('/api/payments/me');
-      setPayments(response.data.data || []);
+    try {      const response = await API.get('/api/payments/me');
+      const sortedPayments = (response.data.data || []).sort((a, b) => 
+        new Date(b.createdAt) - new Date(a.createdAt)
+      );
+      setPayments(sortedPayments);
       
-      // Calculate stats from the response
-      const total = response.data.totalContributions || 0;
-      const breakdown = response.data.monthlyBreakdown || {};
+      // Process payments by currency
+      const totalsByCurrency = {};
+      const totalsByMonth = {};
+      const totalsByMonthAndCurrency = {};
       
-      setPaymentStats({
-        totalContributions: total,
-        monthlyBreakdown: breakdown
+      (response.data.data || []).forEach(payment => {
+        const currency = payment.currency || 'USD';
+        const month = payment.month;
+        
+        // Update totals by currency
+        totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
+        
+        // Update totals by month
+        totalsByMonth[month] = (totalsByMonth[month] || 0) + payment.amount;
+        
+        // Update totals by month and currency
+        if (!totalsByMonthAndCurrency[month]) {
+          totalsByMonthAndCurrency[month] = {};
+        }
+        totalsByMonthAndCurrency[month][currency] = 
+          (totalsByMonthAndCurrency[month][currency] || 0) + payment.amount;
       });
       
-      // Update dashboard stats if needed
+      setPaymentStats({
+        totalsByCurrency,
+        totalsByMonth,
+        totalsByMonthAndCurrency
+      });
+      
+      // Update dashboard stats
+      const totalPayments = Object.values(totalsByCurrency).reduce((sum, val) => sum + val, 0);
       setStats(prev => ({
         ...prev,
-        totalPayments: total
+        totalPayments
       }));
     } catch (error) {
       console.error('Error fetching payments:', error);
       setErrorMessage('Failed to load payment history');
     }
-  };  // Memoize the fetch function to prevent recreating it on every render
+  };// Memoize the fetch function to prevent recreating it on every render
   const fetchDashboardData = React.useCallback(async () => {
     if (!user?.region || !user?.campus || !user?._id) return;
     
@@ -448,43 +470,108 @@ const deleteEvent = async (eventId) => {
 
   // Helper functions for date handling
 const parseAndFormatMonth = (monthStr) => {
-  // Check if monthStr contains year-month format (like 2023-01)
+  if (!monthStr) return 'No date provided';
+
+  // First try to parse as YYYY-MM format
   if (typeof monthStr === 'string' && /^\d{4}-\d{1,2}$/.test(monthStr)) {
     const [year, month] = monthStr.split('-');
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December'];
-    const monthIndex = parseInt(month, 10) - 1;
-    if (monthIndex >= 0 && monthIndex < 12) {
-      return `${monthNames[monthIndex]} ${year}`;
-    }
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { 
+      month: 'long',
+      year: 'numeric'
+    });
   }
   
-  // Try to parse as date object
+  // Then try to parse as a full date string
   try {
     const date = new Date(monthStr);
     if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+      return date.toLocaleDateString('en-US', { 
+        month: 'long',
+        year: 'numeric'
+      });
     }
   } catch (e) {
     console.error('Date parsing error:', e);
   }
   
-  // If all else fails, return the month string or a default
-  return monthStr || 'Unknown Date';
+  // If parsing fails, try to extract year and month from string format
+  const dateMatch = monthStr.match(/(\d{4})[/-](\d{1,2})/);
+  if (dateMatch) {
+    const [, year, month] = dateMatch;
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-US', { 
+        month: 'long',
+        year: 'numeric'
+      });
+    }
+  }
+  
+  return 'Invalid date format';
 };
 
 const formatSafeDate = (dateStr) => {
+  if (!dateStr) return 'No date provided';
+  
   try {
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
     }
-    return 'Invalid Date';
-  } catch (e) {
-    console.error('Date formatting error:', e);
-    return 'Invalid Date';
+    return 'Invalid date format';
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'Invalid date format';
   }
-};  // Effect to refresh user data when profile modal is closed  // ProfileManagement refresh has been moved to the onClose handler in the JSX
+};
+
+const formatPaymentMonth = (monthStr) => {
+  if (!monthStr) return 'No date provided';
+
+  try {
+    // Extract year and month from payment month string (expected format: YYYY-MM)
+    const match = monthStr.match(/^(\d{4})-(\d{2})$/);
+    if (match) {
+      const [, year, month] = match;
+      const date = new Date(year, parseInt(month) - 1);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long'
+      });
+    }
+
+    // If not in YYYY-MM format, try parsing as regular date
+    const date = new Date(monthStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long'
+      });
+    }
+
+    return monthStr; // Return original if parsing fails
+  } catch (error) {
+    console.error('Month formatting error:', error);
+    return monthStr;
+  }
+};
+
+const formatCurrencyAmount = (amount, currency) => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD'
+    }).format(amount);
+  } catch (e) {
+    // Fallback if the currency code is not supported
+    return `${currency} ${amount.toLocaleString()}`;
+  }
+};// Effect to refresh user data when profile modal is closed  // ProfileManagement refresh has been moved to the onClose handler in the JSX
 
   return (    <div className="min-h-screen bg-gray-100">      {/* Profile Management Modal */}
       {showProfile && (
@@ -998,7 +1085,7 @@ const formatSafeDate = (dateStr) => {
                   {event.image && (
                     <div className="h-48 bg-gray-200 overflow-hidden">
                       <img 
-                        src={`${import.meta.env.VITE_API_URL}${event.image}`} 
+                        src={event.image.startsWith('http://') || event.image.startsWith('https://') ? event.image : `${import.meta.env.VITE_API_URL}${event.image}`} 
                         alt={event.name}
                         className="h-full object-contain"
                       />
@@ -1213,100 +1300,132 @@ const formatSafeDate = (dateStr) => {
     <div className="px-4 py-5 sm:px-6 bg-gray-50">
       <h3 className="text-lg font-medium leading-6 text-gray-900">My Payment History</h3>
       <p className="mt-1 text-sm text-gray-500">
-        Your contribution records and history
+        View your payments and contributions by currency
       </p>
     </div>
     
-    <div className="p-6">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-800">Total Contributions</h4>
-          <p className="mt-1 text-2xl font-bold text-blue-900">
-            ${paymentStats.totalContributions.toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-green-800">Payments Count</h4>
-          <p className="mt-1 text-2xl font-bold text-green-900">
-            {payments.length}
-          </p>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-purple-800">Last Payment</h4>
-          <p className="mt-1 text-2xl font-bold text-purple-900">
-            {payments.length > 0 ? 
-              parseAndFormatMonth(payments[0].month) : 
-              'N/A'}
-          </p>
-        </div>
+    {loading ? (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
-      
-      {/* Monthly Breakdown */}
-      <h4 className="text-lg font-medium mb-4">Monthly Breakdown</h4>
-      {Object.keys(paymentStats.monthlyBreakdown).length > 0 ? (
-        <div className="bg-gray-50 rounded-lg p-4 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(paymentStats.monthlyBreakdown)
-              .map(([month, amount]) => (
-                <div key={month} className="bg-white p-4 rounded shadow">
-                  <h5 className="font-medium text-gray-700">
-                    {parseAndFormatMonth(month)}
-                  </h5>
-                  <p className="text-green-600 font-bold mt-1">
-                    ${amount.toLocaleString()}
-                  </p>
-                </div>
-              ))}
+    ) : (
+      <div className="p-6">
+        {/* Summary Stats by Currency */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+          {/* Currency-based totals */}
+          {Object.entries(paymentStats.totalsByCurrency || {}).map(([currency, total]) => (
+            <div key={currency} className="bg-blue-50 p-4 rounded-lg hover:shadow-md transition-shadow duration-200" title={`Total payments in ${currency}`}>
+              <h4 className="text-sm font-medium text-blue-800">Total in {currency}</h4>              <p className="mt-1 text-2xl font-bold text-blue-900">
+                {formatCurrencyAmount(total, currency)}
+              </p>
+            </div>
+          ))}
+          {/* Payment count */}
+          <div className="bg-green-50 p-4 rounded-lg hover:shadow-md transition-shadow duration-200" title="Total number of payments made">
+            <h4 className="text-sm font-medium text-green-800">Payments Count</h4>
+            <p className="mt-1 text-2xl font-bold text-green-900">
+              {payments.length}
+            </p>
+          </div>          {/* Last payment */}
+          <div className="bg-purple-50 p-4 rounded-lg hover:shadow-md transition-shadow duration-200" title="Most recent payment details">
+            <h4 className="text-sm font-medium text-purple-800">Last Payment</h4>
+            {payments.length > 0 ? (
+              <>
+                <p className="mt-1 text-2xl font-bold text-purple-900">
+                  {formatCurrencyAmount(payments[0].amount, payments[0].currency)}
+                </p>
+                <p className="mt-1 text-sm text-purple-700">
+                  {parseAndFormatMonth(payments[0].month)}
+                </p>
+                <p className="text-xs text-purple-600 mt-1">
+                  via {payments[0].paymentMethod || 'N/A'}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-xl text-purple-900">No payments yet</p>
+            )}
           </div>
         </div>
-      ) : (
-        <p className="text-gray-500 py-4">No payment records available</p>
-      )}
-      
-      {/* Detailed Payments Table */}
-      <h4 className="text-lg font-medium mb-4">Payment Details</h4>
-      {payments.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recorded By</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payments.map(payment => (
-                <tr key={payment._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {parseAndFormatMonth(payment.month)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-green-600 font-medium">
-                    ${payment.amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {payment.recordedBy?.name || 'System'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {formatSafeDate(payment.createdAt)}
-                  </td>
+        
+        {/* Monthly Breakdown */}
+        <h4 className="text-lg font-medium mb-4">Monthly Breakdown</h4>
+        {Object.keys(paymentStats.totalsByMonthAndCurrency || {}).length > 0 ? (
+          <div className="bg-gray-50 rounded-lg p-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(paymentStats.totalsByMonthAndCurrency)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                .map(([month, currencyTotals]) => (
+                  <div key={month} className="bg-white p-4 rounded shadow hover:shadow-md transition-shadow duration-200">
+                    <h5 className="font-medium text-gray-700 mb-2">
+                      {parseAndFormatMonth(month)}
+                    </h5>
+                    {Object.entries(currencyTotals).map(([currency, amount]) => (                      <p key={currency} className="text-green-600 font-bold">
+                        {formatCurrencyAmount(amount, currency)}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 py-4">No payment records available</p>
+        )}
+        
+        {/* Detailed Payments Table */}
+        <h4 className="text-lg font-medium mb-4">Payment Details</h4>
+        {payments.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Currency</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Description</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Recorded By</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No payments found</h3>
-          <p className="mt-1 text-sm text-gray-500">Your payment records will appear here once available.</p>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">              {payments.map(payment => (
+                <tr key={payment._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatPaymentMonth(payment.month)}
+                  </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {payment.currency}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                      {payment.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {payment.paymentMethod || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell" title={payment.description || 'No description'}>
+                      {payment.description || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden lg:table-cell">
+                      {payment.recordedBy?.name || 'System'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatSafeDate(payment.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No payments found</h3>
+            <p className="mt-1 text-sm text-gray-500">Your payment records will appear here once available.</p>
+          </div>
+        )}
+      </div>
+    )}
   </div>
 )}
 
