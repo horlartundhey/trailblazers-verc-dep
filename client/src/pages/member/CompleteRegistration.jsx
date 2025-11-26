@@ -64,7 +64,7 @@ const CompleteRegistration = () => {
       if (profilePicture) {
         const pictureFormData = new FormData();
         pictureFormData.append('profilePicture', profilePicture);
-        await API.put('/api/users/profile-picture', pictureFormData, {
+        await API.post('/api/users/profile-picture', pictureFormData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -72,7 +72,7 @@ const CompleteRegistration = () => {
       }
       
       // Call the API to complete registration
-      await API.put('/api/auth/complete-registration');
+      await API.post('/api/auth/complete-registration');
       
       // Refresh user data
       await dispatch(getCurrentUser()).unwrap();

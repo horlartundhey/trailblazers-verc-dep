@@ -3,8 +3,18 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, getCurrentUser, updateUser } from '../../redux/slices/authSlice';
 import API from '../../utils/api';
-import { getFullImagePath } from '../../utils/imageUtils';
 import ProfileManagement from '../../components/leader/ProfileManagement';
+
+// Helper function to get profile image URL
+const getProfileImageUrl = (profilePicture) => {
+  if (!profilePicture) return null;
+  // Check if it's already a full URL (http or https)
+  if (profilePicture.startsWith('http://') || profilePicture.startsWith('https://')) {
+    return profilePicture;
+  }
+  // Otherwise, prepend the API base URL
+  return `http://localhost:5000${profilePicture}`;
+};
 
 const StatCard = ({ title, value, bgColor }) => (
   <div className={`${bgColor} rounded-lg shadow overflow-hidden`}>
@@ -271,7 +281,8 @@ const [paymentStats, setPaymentStats] = useState({
     if (user?._id && user?.region && user?.campus) {
       fetchDashboardData();
     }
-  }, [fetchDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id, user?.region, user?.campus]);
   
   const handleLogout = () => {
       dispatch(logout());
@@ -610,11 +621,18 @@ const formatCurrencyAmount = (amount, currency) => {
                   <button 
                     onClick={() => setShowProfile(true)}
                     className="flex items-center justify-center"
-                  >                    {user?.profilePicture ? (
+                  >
+                    {user?.profilePicture && getProfileImageUrl(user.profilePicture) ? (
                       <img
-                        src={getFullImagePath(user.profilePicture)}
+                        src={getProfileImageUrl(user.profilePicture)}
                         alt="Profile"
                         className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                        onError={(e) => {
+                          console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
+                          console.log('User object:', user);
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">

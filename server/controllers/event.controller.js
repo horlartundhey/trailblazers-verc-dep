@@ -490,10 +490,11 @@ exports.deleteEvent = async (req, res) => {
       });
     }
     
-    await event.remove();
+    await event.deleteOne();
     
     res.json({
       success: true,
+      message: 'Event deleted successfully',
       data: {}
     });
   } catch (error) {
@@ -513,13 +514,28 @@ exports.registerForEvent = async (req, res) => {
   try {
     // First, get the event without validation
     let event = await Event.findById(req.params.id)
-      .select('regions campuses registrationStartDate registrationEndDate capacity registeredMembers guestRegistrations')
+      .select('regions campuses registrationAccessControl registrationStartDate registrationEndDate capacity registeredMembers guestRegistrations')
       .lean();
     
     if (!event) {
       return res.status(404).json({
         success: false,
         message: 'Event not found'
+      });
+    }
+
+    // Check access control
+    if (event.registrationAccessControl === 'Leaders' && req.user.role !== 'Leader') {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is only open to Leaders'
+      });
+    }
+
+    if (event.registrationAccessControl === 'Members' && req.user.role === 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is only open to Members and Leaders'
       });
     }
     
@@ -534,10 +550,10 @@ exports.registerForEvent = async (req, res) => {
           message: 'You are not allowed to register for this event'
         });
       }
-    } else {
+    } else if (req.user.role !== 'Leader') {
       return res.status(403).json({
         success: false,
-        message: 'Only members can register for events'
+        message: 'Only members and leaders can register for events'
       });
     }
 
@@ -633,6 +649,107 @@ exports.registerForEvent = async (req, res) => {
     });
   } catch (error) {
     console.error('Register for event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register for event',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Register guest for an event (no authentication required)
+// @route   POST /api/events/:id/register-guest
+// @access  Public
+exports.registerGuestForEvent = async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name and email are required'
+      });
+    }
+
+    const event = await Event.findById(req.params.id)
+      .select('name registrationAccessControl registrationStartDate registrationEndDate capacity registeredMembers guestRegistrations');
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if event allows public registration
+    if (event.registrationAccessControl !== 'Public') {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is not open for public registration. Please log in to register.'
+      });
+    }
+
+    // Check registration period
+    const now = new Date();
+    if (now < new Date(event.registrationStartDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration has not started yet'
+      });
+    }
+    if (now > new Date(event.registrationEndDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration is closed'
+      });
+    }
+
+    // Check if guest already registered with this email
+    const existingGuest = event.guestRegistrations?.find(
+      g => g.email.toLowerCase() === email.toLowerCase()
+    );
+    
+    if (existingGuest && existingGuest.status !== 'Cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'This email is already registered for this event'
+      });
+    }
+
+    // Count confirmed registrations
+    const confirmedMembers = (event.registeredMembers || []).filter(
+      m => m.status === 'Confirmed'
+    ).length;
+    
+    const confirmedGuests = (event.guestRegistrations || []).filter(
+      g => g.status === 'Confirmed'
+    ).length;
+    
+    const totalConfirmed = confirmedMembers + confirmedGuests;
+    const status = totalConfirmed >= event.capacity ? 'Waitlisted' : 'Confirmed';
+
+    // Add guest registration
+    event.guestRegistrations.push({
+      name,
+      email,
+      phone: phone || '',
+      status,
+      registrationDate: now
+    });
+
+    await event.save();
+
+    res.json({
+      success: true,
+      data: {
+        status,
+        message: status === 'Confirmed'
+          ? 'You are now registered for this event! Check your email for confirmation.'
+          : 'You have been added to the waitlist. We will notify you if a spot opens up.'
+      }
+    });
+  } catch (error) {
+    console.error('Guest registration error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to register for event',

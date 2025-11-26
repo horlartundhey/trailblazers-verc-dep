@@ -100,12 +100,24 @@ router.delete(
 
 // @desc    Register for an event
 // @route   POST /api/events/:id/register
-// @access  Private (Members only)
+// @access  Private (Members, Leaders)
 router.post(
   '/:id/register',
   protect,
-  authorize('Member'),
+  authorize('Member', 'Leader'),
   eventController.registerForEvent
+);
+
+// @desc    Guest registration for an event (no auth required)
+// @route   POST /api/events/:id/register-guest
+// @access  Public
+router.post(
+  '/:id/register-guest',
+  [
+    check('name', 'Name is required').not().isEmpty(),
+    check('email', 'Valid email is required').isEmail()
+  ],
+  eventController.registerGuestForEvent
 );
 
 // @desc    Cancel registration for an event

@@ -16,12 +16,12 @@ cloudinary.config({
 // @route   POST /api/gallery
 // @access  Private (Admin only)
 const uploadImage = asyncHandler(async (req, res) => {
-  const { category, caption, collection } = req.body;
+  const { category, caption, collection, programTitle, programDate, description, testimony, attendees, healings, messageShared, isPublic } = req.body;
   const file = req.file;
 
-  if (!file || !category || !caption || !collection) {
+  if (!file || !category || !caption || !collection || !programTitle || !programDate) {
     res.status(400);
-    throw new Error('Please provide image, category, caption, and collection');
+    throw new Error('Please provide image, category, caption, collection, program title, and program date');
   }
 
   // Validate category
@@ -66,6 +66,14 @@ const uploadImage = asyncHandler(async (req, res) => {
       category,
       caption,
       collection,
+      programTitle,
+      programDate,
+      description: description || '',
+      testimony: testimony || '',
+      attendees: attendees || 0,
+      healings: healings || 0,
+      messageShared: messageShared || '',
+      isPublic: isPublic !== undefined ? isPublic : true,
       createdBy: req.user._id,
     });
 
@@ -86,11 +94,11 @@ const uploadImage = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get all gallery images
+// @desc    Get all gallery images (public only)
 // @route   GET /api/gallery
 // @access  Public
 const getImages = asyncHandler(async (req, res) => {
-  const images = await Gallery.find()
+  const images = await Gallery.find({ isPublic: true })
     .populate('createdBy', 'name')
     .sort('-createdAt');
   res.status(200).json({
@@ -99,11 +107,63 @@ const getImages = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get all programs with grouped images
+// @route   GET /api/gallery/programs
+// @access  Public
+const getPrograms = async (req, res) => {
+  try {
+    console.log('Fetching gallery programs...');
+    const programs = await Gallery.aggregate([
+      { $match: { isPublic: true } },
+      {
+        $group: {
+          _id: '$programTitle',
+          programTitle: { $first: '$programTitle' },
+          programDate: { $first: '$programDate' },
+          description: { $first: '$description' },
+          testimony: { $first: '$testimony' },
+          attendees: { $first: '$attendees' },
+          healings: { $first: '$healings' },
+          messageShared: { $first: '$messageShared' },
+          category: { $first: '$category' },
+          collection: { $first: '$collection' },
+          thumbnailImage: { $first: '$src' },
+          images: {
+            $push: {
+              _id: '$_id',
+              src: '$src',
+              caption: '$caption',
+              category: '$category',
+            }
+          },
+          createdAt: { $first: '$createdAt' }
+        }
+      },
+      { $sort: { programDate: -1 } }
+    ]);
+
+    console.log(`Successfully fetched ${programs.length} programs`);
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    console.error('Get programs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching programs: ' + error.message
+    });
+  }
+};
+
 // @desc    Get images by collection
 // @route   GET /api/gallery/collection/:collection
 // @access  Public
 const getImagesByCollection = asyncHandler(async (req, res) => {
-  const images = await Gallery.find({ collection: req.params.collection })
+  const images = await Gallery.find({ 
+    collection: req.params.collection,
+    isPublic: true 
+  })
     .populate('createdBy', 'name')
     .sort('-createdAt');
   res.status(200).json({
@@ -145,6 +205,7 @@ const deleteImage = asyncHandler(async (req, res) => {
 module.exports = {
   uploadImage,
   getImages,
+  getPrograms,
   getImagesByCollection,
   deleteImage,
 };

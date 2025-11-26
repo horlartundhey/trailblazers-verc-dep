@@ -4,9 +4,23 @@ import { getFullImagePath } from '../../utils/imageUtils';
 
 // Profile Picture Upload Component
 const ProfilePictureUpload = ({ profile, onUpdate }) => {
-  const [previewImage, setPreviewImage] = useState(getFullImagePath(profile?.profilePicture) || '');
+  // Handle both Cloudinary URLs and local paths
+  const getProfileImageUrl = (imagePath) => {
+    if (!imagePath) return '/default-profile.png';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath; // Cloudinary URL
+    }
+    return getFullImagePath(imagePath); // Local path
+  };
+  
+  const [previewImage, setPreviewImage] = useState(getProfileImageUrl(profile?.profilePicture));
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  
+  // Update preview when profile changes
+  useEffect(() => {
+    setPreviewImage(getProfileImageUrl(profile?.profilePicture));
+  }, [profile?.profilePicture]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];

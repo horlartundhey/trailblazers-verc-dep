@@ -144,7 +144,7 @@ const Navbar = () => {
                   Login
                 </Link>
                 <Link 
-                  to="/memberegister" 
+                  to="/register" 
                   className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >

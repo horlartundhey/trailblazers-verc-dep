@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import BackButton from '../components/BackButton';
 import API from '../utils/api';
 import { register } from '../redux/slices/authSlice';
 
@@ -22,6 +25,7 @@ const RegisterMember = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchRegionsAndCampuses = async () => {
       try {
         const response = await API.get('/api/users/regions-and-campuses');
@@ -106,12 +110,16 @@ const RegisterMember = () => {
   };
 
   return (
-    <section className="py-8 bg-gray-50">
-      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900">Member Registration</h2>
-          <p className="mt-2 text-sm text-gray-500">Join Trailblazer as a member</p>
-        </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-grow">
+        <section className="py-8 bg-gray-50">
+          <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
+            <BackButton />
+            <div className="text-center mb-12">
+              <h2 className="text-2xl font-semibold text-gray-900">Member Registration</h2>
+              <p className="mt-2 text-sm text-gray-500">Join Trailblazer as a member</p>
+            </div>
 
         {error && (
           <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
@@ -256,8 +264,11 @@ const RegisterMember = () => {
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
-      </div>
-    </section>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 };
 

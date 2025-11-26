@@ -287,6 +287,11 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   
   // New function to delete an event
   const handleDeleteEvent = async (eventId) => {
+    // Add confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
       setLoading(true);
       await API.delete(`/api/events/${eventId}`);
@@ -296,9 +301,11 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       
       // Show success message
       setSuccessMessage('Event deleted successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to delete event';
       setErrorMessage(errorMsg);
+      setTimeout(() => setErrorMessage(''), 5000);
       console.error(err);
     } finally {
       setLoading(false);
@@ -1242,6 +1249,7 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
     registrationEndDate: initialData.registrationEndDate ? new Date(initialData.registrationEndDate).toISOString().slice(0, 16) : '',
     location: initialData.location || '',
     capacity: initialData.capacity || 0,
+    registrationAccessControl: initialData.registrationAccessControl || 'Public',
     regions: initialData.regions || [],
     campuses: initialData.campuses || [],
     image: initialData.image || '',
@@ -1430,6 +1438,26 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
             min="1"
             className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
           />
+        </div>
+
+        <div>
+          <label htmlFor="registrationAccessControl" className="block text-sm font-medium text-gray-700">
+            Registration Access
+          </label>
+          <select
+            name="registrationAccessControl"
+            id="registrationAccessControl"
+            value={formData.registrationAccessControl}
+            onChange={handleChange}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+          >
+            <option value="Public">Open to Visitors</option>
+            <option value="Members">Members Only</option>
+            <option value="Leaders">Leaders Only</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Controls who can register for this event
+          </p>
         </div>
 
         <div>

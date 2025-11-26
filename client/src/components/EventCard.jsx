@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDate } from '../utils/dateUtils';
 import { Link } from 'react-router-dom';
 
-const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, onRegister }) => {
+const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, onRegister, onGuestRegister }) => {
   const isAdmin = user?.role === 'Admin';
   const isLeader = user?.role === 'Leader';
   const isMember = user?.role === 'Member';
@@ -183,6 +183,28 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
           ) : (
             <>
               {/* Non-member view */}
+              {/* Guest registration button for Public events */}
+              {event.registrationAccessControl === 'Public' && !isFull && (
+                <button
+                  onClick={() => onGuestRegister(event)}
+                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors mb-2"
+                >
+                  Register as Guest
+                </button>
+              )}
+
+              {/* Show access message for restricted events */}
+              {event.registrationAccessControl === 'Members' && (
+                <div className="w-full px-4 py-2 bg-yellow-50 text-yellow-800 rounded text-center text-sm mb-2">
+                  Members only event - Please sign in or become a member
+                </div>
+              )}
+              {event.registrationAccessControl === 'Leaders' && (
+                <div className="w-full px-4 py-2 bg-yellow-50 text-yellow-800 rounded text-center text-sm mb-2">
+                  Leaders only event - Contact admin for access
+                </div>
+              )}
+
               <button
                 onClick={() => onViewDetails(event)}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"

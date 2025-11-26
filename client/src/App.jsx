@@ -15,6 +15,9 @@ import PrivateRoute from './routes/PrivateRoute';
 import Index from './pages/Index';
 import RegisterMember from './pages/RegisterMember';
 import Events from './pages/Events';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Gallery from './pages/Gallery';
 
 // Set up application with Redux
 const AppContent = () => {
@@ -73,6 +76,9 @@ const AppContent = () => {
       {/* Public routes */}
       <Route path="/" element={<Index />} />
       <Route path="/events" element={<Events />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/gallery" element={<Gallery />} />
+      <Route path="/contact" element={<Contact />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<RegisterMember />} />
       

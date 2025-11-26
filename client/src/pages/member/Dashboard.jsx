@@ -88,7 +88,7 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
         )}
       </div>
       
-      <div className="flex flex-col space-y-3 w-full">
+      <div className="flex flex-col space-y-2 w-full">
         <input
           type="file"
           ref={fileInputRef}
@@ -99,21 +99,19 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
         />
         <label
           htmlFor="profilePictureInput"
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-200 transition duration-200"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-center cursor-pointer hover:bg-indigo-700 transition duration-200"
         >
-          Choose Image
+          {previewImage && previewImage !== getFullImagePath(profile?.profilePicture) ? 'Change Image' : 'Upload Picture'}
         </label>
-        <button
-          onClick={handleUpload}
-          disabled={!previewImage || previewImage === getFullImagePath(profile?.profilePicture) || uploading}
-          className={`px-4 py-2 rounded-lg text-white font-medium ${
-            (!previewImage || previewImage === getFullImagePath(profile?.profilePicture) || uploading)
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-indigo-600 hover:bg-indigo-700'
-          } transition duration-200`}
-        >
-          {uploading ? 'Uploading...' : 'Save Picture'}
-        </button>
+        {previewImage && previewImage !== getFullImagePath(profile?.profilePicture) && (
+          <button
+            onClick={handleUpload}
+            disabled={uploading}
+            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {uploading ? 'Saving...' : 'Save'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -197,7 +195,7 @@ const ProfileForm = ({ profile, onUpdate }) => {
           disabled={loading}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200"
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          {loading ? 'Saving...' : 'Update Profile'}
         </button>
       </div>
     </form>

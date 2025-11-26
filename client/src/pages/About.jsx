@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import BackButton from '../components/BackButton';
 
 const About = () => {
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow bg-gray-50">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+          <BackButton />
           <div className="text-center">
             <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
               About Trailblazers Nation
