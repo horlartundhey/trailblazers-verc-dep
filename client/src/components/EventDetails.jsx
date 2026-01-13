@@ -113,10 +113,10 @@ const EventDetails = ({ event, isOpen, onClose, user }) => {
               {!user && (
                 <>
                   <a
-                    href="/register"
+                    href="/interest"
                     className="block w-full px-4 py-2 text-center bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                   >
-                    Sign up as Member
+                    Show Interest to Join
                   </a>
                 </>
               )}

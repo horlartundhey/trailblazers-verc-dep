@@ -2,8 +2,8 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: 'https://trailblazers-verc-server.vercel.app',
-  // baseURL: 'http://localhost:5000',
+  // baseURL: 'https://trailblazers-verc-server.vercel.app',
+  baseURL: 'http://localhost:5000',
   headers: {
     'Content-Type': 'application/json',
   },

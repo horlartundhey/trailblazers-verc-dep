@@ -241,6 +241,10 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {  const [user,
                     <p className="mt-1">{user.email}</p>
                   </div>
                   <div>
+                    <p className="text-sm font-medium text-gray-500">Phone</p>
+                    <p className="mt-1">{user.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
                     <p className="text-sm font-medium text-gray-500">Role</p>
                     <p className="mt-1">{user.role}</p>
                   </div>
@@ -255,6 +259,16 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {  const [user,
                   <div>
                     <p className="text-sm font-medium text-gray-500">Campus</p>
                     <p className="mt-1">{user.campus || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Registration Status</p>
+                    <p className="mt-1">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.registrationStatus === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {user.registrationStatus || 'Pending'}
+                      </span>
+                    </p>
                   </div>
                 </div>
               </div>

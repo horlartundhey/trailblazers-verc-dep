@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import BackButton from '../components/BackButton';
 import { EnvelopeIcon, PhoneIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import API from '../utils/api';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -33,15 +34,13 @@ const Contact = () => {
     setSuccess(false);
 
     try {
-      // TODO: Connect to backend API
-      // const response = await API.post('/api/messages', formData);
+      const response = await API.post('/api/contact', formData);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setSuccess(true);
-      setFormData({ name: '', email: '', subject: '', message: '' });
-      setTimeout(() => setSuccess(false), 5000);
+      if (response.data.success) {
+        setSuccess(true);
+        setFormData({ name: '', email: '', subject: '', message: '' });
+        setTimeout(() => setSuccess(false), 5000);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send message. Please try again.');
     } finally {
@@ -58,7 +57,7 @@ const Contact = () => {
           
           <div className="text-center mb-12">
             <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl">
-              Get in Touch
+              CONTACT US
             </h1>
             <p className="mt-4 text-xl text-gray-600">
               We'd love to hear from you. Send us a message and we'll respond as soon as possible.

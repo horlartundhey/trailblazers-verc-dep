@@ -196,7 +196,7 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
               {/* Show access message for restricted events */}
               {event.registrationAccessControl === 'Members' && (
                 <div className="w-full px-4 py-2 bg-yellow-50 text-yellow-800 rounded text-center text-sm mb-2">
-                  Members only event - Please sign in or become a member
+                  Members only event - Please sign in or show interest in joining
                 </div>
               )}
               {event.registrationAccessControl === 'Leaders' && (
@@ -212,10 +212,10 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
                 View Event Details
               </button>
               <Link
-                to="/register"
+                to="/interest"
                 className="block w-full px-4 py-2 text-center bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
               >
-                Sign up as Member
+                Show Interest to Join
               </Link>
             </>
           )}

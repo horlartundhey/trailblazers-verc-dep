@@ -6,7 +6,19 @@ import { logout } from '../../redux/slices/authSlice';
 import UserDetailsModal from './UserDetailsModal';
 import API from '../../utils/api';
 import GalleryImageForm from '../../components/GalleryImageForm';
+import ProfileManagement from '../../components/leader/ProfileManagement';
 
+// Helper function to get profile image URL
+const getProfileImageUrl = (profilePicture) => {
+  if (!profilePicture) return null;
+  // Check if it's already a full URL (http or https)
+  if (profilePicture.startsWith('http://') || profilePicture.startsWith('https://')) {
+    return profilePicture;
+  }
+  // Otherwise, prepend the API base URL
+  const baseURL = API.defaults.baseURL || 'https://trailblazers-verc-server.vercel.app';
+  return `${baseURL}${profilePicture}`;
+};
 
 const AdminDashboard = () => {  const [stats, setStats] = useState({
     totalMembers: 0,
@@ -20,6 +32,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
     campuses: []
   });
   const [users, setUsers] = useState([]);
+  const [interests, setInterests] = useState([]);
 
   // For the Users modal
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -37,6 +50,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
   const [filterParams, setFilterParams] = useState({
     role: '',
     region: '',
@@ -71,12 +85,15 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       const paymentsData = paymentsResponse.data.data || [];
       
       // Fetch regions and campuses from RegionCampus management
-      const [regionsResponse, campusesResponse] = await Promise.all([
+      const [regionsResponse, campusesResponse, interestsResponse] = await Promise.all([
         API.get('/api/region-campus/regions'),
-        API.get('/api/region-campus/campuses')
+        API.get('/api/region-campus/campuses'),
+        API.get('/api/interest')
       ]);
       const regionsData = regionsResponse.data.data || [];
       const campusesData = campusesResponse.data.data || [];
+      const interestsData = interestsResponse.data.data || [];
+      setInterests(interestsData);
         
       // Calculate dashboard statistics from user data
       const totalMembers = userData.filter(user => user.role === 'Member').length;
@@ -411,7 +428,48 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-700">Welcome, {user?.name}</span>
+            <div className="flex items-center space-x-3">
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-medium text-gray-900">{user?.name}</span>
+                <span className="text-xs text-gray-500">Administrator</span>
+              </div>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowProfile(true)}
+                  className="flex items-center justify-center focus:outline-none hover:opacity-80 transition-opacity"
+                >
+                  {user?.profilePicture && getProfileImageUrl(user.profilePicture) ? (
+                    <>
+                      <img
+                        src={getProfileImageUrl(user.profilePicture)}
+                        alt="Profile"
+                        className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                        onError={(e) => {
+                          console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          // Show fallback
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                      <div className="h-10 w-10 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
+                        <span className="text-lg font-medium text-indigo-600">
+                          {user?.name?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
+                      <span className="text-lg font-medium text-indigo-600">
+                        {user?.name?.charAt(0)?.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 border-2 border-white"></div>
+                </button>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
@@ -478,6 +536,16 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             </button>
             <button
               className={`py-4 px-1 border-b-2 ${
+                activeTab === 'interests' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } font-medium`}
+              onClick={() => setActiveTab('interests')}
+            >
+              Interest Submissions
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 ${
                 activeTab === 'regions' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -505,7 +573,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard title="Total Members" value={stats.totalMembers} bgColor="bg-blue-500" />
             <StatCard title="Total Leaders" value={stats.totalLeaders} bgColor="bg-green-500" />
-            <StatCard title="Pending Members" value={stats.pendingMembers} bgColor="bg-yellow-500" />
+            <StatCard title="Pending Registration" value={stats.pendingMembers} bgColor="bg-yellow-500" />
             <StatCard title="Completed Members" value={stats.completedMembers} bgColor="bg-purple-500" />
             <StatCard title="Total Events" value={stats.totalEvents} bgColor="bg-indigo-500" />            
               <StatCard 
@@ -720,9 +788,6 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                         Name
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -739,15 +804,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                   <tbody className="bg-white divide-y divide-gray-200">
                     {users && users.length > 0 ? (
                       users.map(user => (
-                        <tr key={user._id}>
+                        <tr key={user._id} className="hover:bg-gray-50 cursor-pointer" onClick={() => viewUserDetails(user._id)}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{user.name}</div>
                             {user.memberCode && (
                               <div className="text-sm text-gray-500">ID: {user.memberCode}</div>
                             )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{user.email}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -788,7 +850,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
                           No users found
                         </td>
                       </tr>
@@ -835,6 +897,87 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             </div>
             <div className="px-4 py-5 sm:p-6">
               <GalleryImageForm />
+            </div>
+          </div>
+        )}
+
+        {/* Interest Submissions Tab */}
+        {activeTab === 'interests' && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-5 sm:px-6 bg-gray-50">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">Interest Submissions</h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Review and manage people who have expressed interest in joining
+              </p>
+            </div>
+            <div className="px-4 py-5 sm:p-6">
+              {interests.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No interest submissions</h3>
+                  <p className="mt-1 text-sm text-gray-500">No one has submitted the interest form yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Church</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {interests.map((interest) => (
+                        <tr key={interest._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{interest.name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{interest.phone}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{interest.email || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{interest.age || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{interest.location || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{interest.church || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 max-w-xs truncate">{interest.reason || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              interest.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                              interest.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                              interest.status === 'Reviewed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {interest.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(interest.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1194,6 +1337,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
           </div>
         </div>
       )}
+
+      {/* Profile Management Modal */}
+      <ProfileManagement 
+        isOpen={showProfile}
+        onClose={() => setShowProfile(false)}
+      />
     </div>
   );
   
@@ -1589,6 +1738,7 @@ const UserForm = ({ onUserCreated }) => {
     const [formData, setFormData] = useState({
       name: '',
       email: '',
+      phone: '',
       password: '',
       role: 'Member', // Default role
       region: '',
@@ -1647,6 +1797,7 @@ const UserForm = ({ onUserCreated }) => {
         const payload = {
           name: formData.name,
           email: formData.email,
+          phone: formData.phone,
           password: formData.password,
           role: formData.role
         };
@@ -1693,6 +1844,7 @@ const UserForm = ({ onUserCreated }) => {
         setFormData({
           name: '',
           email: '',
+          phone: '',
           password: '',
           role: 'Member',
           region: '',
@@ -1729,7 +1881,7 @@ const UserForm = ({ onUserCreated }) => {
   
         <div className="grid grid-cols-1 gap-6 mt-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
             <input
               type="text"
               name="name"
@@ -1737,12 +1889,13 @@ const UserForm = ({ onUserCreated }) => {
               value={formData.name}
               onChange={handleChange}
               required
-              className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              placeholder="Enter full name"
+              className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             />
           </div>
   
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               name="email"
@@ -1750,12 +1903,26 @@ const UserForm = ({ onUserCreated }) => {
               value={formData.email}
               onChange={handleChange}
               required
-              className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              placeholder="email@example.com"
+              className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input
+              type="tel"
+              name="phone"
+              id="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="+1234567890"
+              className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             />
           </div>
   
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               name="password"
@@ -1764,18 +1931,19 @@ const UserForm = ({ onUserCreated }) => {
               onChange={handleChange}
               required
               minLength="6"
-              className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              placeholder="Minimum 6 characters"
+              className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             />
           </div>
   
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select 
               id="role" 
               name="role" 
               value={formData.role} 
               onChange={handleChange} 
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             >
               <option value="Member">Member</option>
               
@@ -1791,7 +1959,7 @@ const UserForm = ({ onUserCreated }) => {
           {(formData.role === 'Leader' || formData.role === 'Member') && (
             <>
               <div>
-                <label htmlFor="region" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
                   Region {formData.role === 'Member' && <span className="text-red-500">*</span>}
                 </label>
                 <select
@@ -1800,7 +1968,7 @@ const UserForm = ({ onUserCreated }) => {
                   value={formData.region}
                   onChange={handleChange}
                   required={formData.role === 'Member'} // Required for Members
-                  className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
                 >
                   <option value="">Select a region</option>
                   {regions.map((region, index) => (
@@ -1816,14 +1984,14 @@ const UserForm = ({ onUserCreated }) => {
                       placeholder="Enter a new region"
                       value={formData.newRegion}
                       onChange={handleChange}
-                      className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
                     />
                   </div>
                 )}
               </div>
   
               <div>
-                <label htmlFor="campus" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="campus" className="block text-sm font-medium text-gray-700 mb-1">
                   Campus {formData.role === 'Member' && <span className="text-red-500">*</span>}
                 </label>
                 <select
@@ -1832,7 +2000,7 @@ const UserForm = ({ onUserCreated }) => {
                   value={formData.campus}
                   onChange={handleChange}
                   required={formData.role === 'Member'} // Required for Members
-                  className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
                 >
                   <option value="">Select a campus</option>
                   {campuses.map((campus, index) => (
@@ -1848,7 +2016,7 @@ const UserForm = ({ onUserCreated }) => {
                       placeholder="Enter a new campus"
                       value={formData.newCampus}
                       onChange={handleChange}
-                      className="mt-2 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      className="mt-2 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
                     />
                   </div>
                 )}
@@ -1858,7 +2026,7 @@ const UserForm = ({ onUserCreated }) => {
 
           {formData.role === 'Leader' && (
             <div>
-              <label htmlFor="position" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-1">
                 Position <span className="text-red-500">*</span>
               </label>
               <input
@@ -1869,7 +2037,7 @@ const UserForm = ({ onUserCreated }) => {
                 onChange={handleChange}
                 required
                 placeholder="e.g., Regional Coordinator, Campus Leader"
-                className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Specify the leadership position or title

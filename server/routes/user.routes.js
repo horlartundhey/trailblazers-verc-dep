@@ -57,6 +57,7 @@ router.post(
   [
     check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
+    check('phone', 'Phone number is optional').optional(),
     check('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
     check('role', 'Role is required').isIn(['Admin', 'Leader', 'Member']),
     check('region', 'Region is required for Leaders and Members').if(
@@ -91,6 +92,16 @@ router.patch(
     check('phone', 'Please include a valid phone number').optional().isMobilePhone(),
   ],
   userController.updateMyProfile
+);
+
+// @desc    Update current user profile picture
+// @route   PATCH /api/users/me/profile-picture
+// @access  Private (All roles)
+router.patch(
+  '/me/profile-picture',
+  protect,
+  upload.single('profilePicture'),
+  userController.updateProfilePicture
 );
 
 

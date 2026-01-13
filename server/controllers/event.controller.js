@@ -664,10 +664,10 @@ exports.registerGuestForEvent = async (req, res) => {
   try {
     const { name, email, phone } = req.body;
 
-    if (!name || !email) {
+    if (!name || !phone) {
       return res.status(400).json({
         success: false,
-        message: 'Name and email are required'
+        message: 'Name and phone number are required'
       });
     }
 
@@ -704,15 +704,15 @@ exports.registerGuestForEvent = async (req, res) => {
       });
     }
 
-    // Check if guest already registered with this email
+    // Check if guest already registered with this phone number
     const existingGuest = event.guestRegistrations?.find(
-      g => g.email.toLowerCase() === email.toLowerCase()
+      g => g.phone === phone
     );
     
     if (existingGuest && existingGuest.status !== 'Cancelled') {
       return res.status(400).json({
         success: false,
-        message: 'This email is already registered for this event'
+        message: 'This phone number is already registered for this event'
       });
     }
 
@@ -731,8 +731,8 @@ exports.registerGuestForEvent = async (req, res) => {
     // Add guest registration
     event.guestRegistrations.push({
       name,
-      email,
-      phone: phone || '',
+      email: email || '',
+      phone,
       status,
       registrationDate: now
     });

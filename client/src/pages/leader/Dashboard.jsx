@@ -13,7 +13,8 @@ const getProfileImageUrl = (profilePicture) => {
     return profilePicture;
   }
   // Otherwise, prepend the API base URL
-  return `http://localhost:5000${profilePicture}`;
+  const baseURL = API.defaults.baseURL || 'https://trailblazers-verc-server.vercel.app';
+  return `${baseURL}${profilePicture}`;
 };
 
 const StatCard = ({ title, value, bgColor }) => (
@@ -88,12 +89,22 @@ const UserDetailsModal = ({ userId, isOpen, onClose }) => {
                 <dd className="mt-1 text-sm text-gray-900">{user.email}</dd>
               </div>
               <div>
+                <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                <dd className="mt-1 text-sm text-gray-900">{user.phone || 'Not provided'}</dd>
+              </div>
+              <div>
                 <dt className="text-sm font-medium text-gray-500">Member Code</dt>
                 <dd className="mt-1 text-sm text-gray-900">{user.memberCode || 'N/A'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">Registration Status</dt>
-                <dd className="mt-1 text-sm text-gray-900">{user.registrationStatus}</dd>
+                <dd className="mt-1 text-sm text-gray-900">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    user.registrationStatus === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {user.registrationStatus || 'Pending'}
+                  </span>
+                </dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">Region</dt>
@@ -312,6 +323,7 @@ const [paymentStats, setPaymentStats] = useState({
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     region: user?.region || '',
@@ -343,6 +355,7 @@ const [paymentStats, setPaymentStats] = useState({
       const memberData = {
         name: formData.name,
         email: formData.email,
+        phone: formData.phone,
         password: formData.password,
         region: user.region,
         campus: user.campus
@@ -354,6 +367,7 @@ const [paymentStats, setPaymentStats] = useState({
       setFormData({
         name: '',
         email: '',
+        phone: '',
         password: '',
         confirmPassword: '',
         region: user?.region || '',
@@ -623,17 +637,27 @@ const formatCurrencyAmount = (amount, currency) => {
                     className="flex items-center justify-center"
                   >
                     {user?.profilePicture && getProfileImageUrl(user.profilePicture) ? (
-                      <img
-                        src={getProfileImageUrl(user.profilePicture)}
-                        alt="Profile"
-                        className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
-                        onError={(e) => {
-                          console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
-                          console.log('User object:', user);
-                          e.target.onerror = null;
-                          e.target.style.display = 'none';
-                        }}
-                      />
+                      <>
+                        <img
+                          src={getProfileImageUrl(user.profilePicture)}
+                          alt="Profile"
+                          className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                          onError={(e) => {
+                            console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
+                            console.log('User object:', user);
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            // Show fallback
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div className="h-10 w-10 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
+                          <span className="text-lg font-medium text-indigo-600">
+                            {user?.name?.charAt(0)?.toUpperCase()}
+                          </span>
+                        </div>
+                      </>
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
                         <span className="text-lg font-medium text-indigo-600">
@@ -777,7 +801,7 @@ const formatCurrencyAmount = (amount, currency) => {
             {/* Stats cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard title="Total Members" value={stats.totalMembers} bgColor="bg-blue-500" />
-              <StatCard title="Pending Members" value={stats.pendingMembers} bgColor="bg-yellow-500" />
+              <StatCard title="Pending Registration" value={stats.pendingMembers} bgColor="bg-yellow-500" />
               <StatCard title="Completed Members" value={stats.completedMembers} bgColor="bg-green-500" />
               <StatCard title="Total Events" value={stats.totalEvents} bgColor="bg-indigo-500" />
             </div>
@@ -803,7 +827,7 @@ const formatCurrencyAmount = (amount, currency) => {
                     description="Update your position, trainings, and profile picture" 
                     onClick={() => setShowProfile(true)} 
                   />                  <ActionButton 
-                    title="Pending Members" 
+                    title="Pending Registration" 
                     description="View pending registrations" 
                     onClick={() => {
                       setFilterParams({...filterParams, registrationStatus: 'Pending'});
@@ -877,9 +901,6 @@ const formatCurrencyAmount = (amount, currency) => {
                         Name
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Member Code
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -893,12 +914,13 @@ const formatCurrencyAmount = (amount, currency) => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {users && users.length > 0 ? (
                       users.map(member => (
-                        <tr key={member._id}>
+                        <tr 
+                          key={member._id}
+                          onClick={() => viewUserDetails(member._id)}
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{member.email}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{member.memberCode || 'N/A'}</div>
@@ -914,7 +936,10 @@ const formatCurrencyAmount = (amount, currency) => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
-                              onClick={() => viewUserDetails(member._id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                viewUserDetails(member._id);
+                              }}
                               className="text-indigo-600 hover:text-indigo-900 mr-3"
                             >
                               View
@@ -924,7 +949,7 @@ const formatCurrencyAmount = (amount, currency) => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
                           No members found
                         </td>
                       </tr>
@@ -950,7 +975,7 @@ const formatCurrencyAmount = (amount, currency) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Name Field */}
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                       Full Name
                     </label>
                     <input
@@ -959,14 +984,15 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+                      placeholder="Enter full name"
                       required
                     />
                   </div>
 
                   {/* Email Field */}
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                       Email Address
                     </label>
                     <input
@@ -975,14 +1001,31 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+                      placeholder="email@example.com"
                       required
+                    />
+                  </div>
+
+                  {/* Phone Field */}
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="+1234567890"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
                     />
                   </div>
 
                   {/* Password Field */}
                   <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                       Password
                     </label>
                     <input
@@ -991,7 +1034,8 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+                      placeholder="Minimum 6 characters"
                       required
                       minLength="6"
                     />
@@ -999,7 +1043,7 @@ const formatCurrencyAmount = (amount, currency) => {
 
                   {/* Confirm Password Field */}
                   <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                       Confirm Password
                     </label>
                     <input
@@ -1008,14 +1052,15 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+                      placeholder="Re-enter password"
                       required
                     />
                   </div>
 
                   {/* Region Field (read-only, based on leader's region) */}
                   <div>
-                    <label htmlFor="region" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
                       Region
                     </label>
                     <input
@@ -1024,13 +1069,13 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="region"
                       value={user?.region || ''}
                       readOnly
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-gray-50 text-gray-600 cursor-not-allowed focus:outline-none sm:text-sm"
                     />
                   </div>
 
                   {/* Campus Field (read-only, based on leader's campus) */}
                   <div>
-                    <label htmlFor="campus" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="campus" className="block text-sm font-medium text-gray-700 mb-1">
                       Campus
                     </label>
                     <input
@@ -1039,7 +1084,7 @@ const formatCurrencyAmount = (amount, currency) => {
                       name="campus"
                       value={user?.campus || ''}
                       readOnly
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-gray-50 text-gray-600 cursor-not-allowed focus:outline-none sm:text-sm"
                     />
                   </div>
                 </div>

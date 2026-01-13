@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useDispatch } from 'react-redux';
 import API from '../../utils/api';
 import { getFullImagePath } from '../../utils/imageUtils';
+import { getCurrentUser } from '../../redux/slices/authSlice';
 
 // Profile Picture Upload Component
 const ProfilePictureUpload = ({ profile, onUpdate }) => {
+  const dispatch = useDispatch();
   // Handle both Cloudinary URLs and local paths
   const getProfileImageUrl = (imagePath) => {
     if (!imagePath) return '/default-profile.png';
@@ -53,6 +56,8 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
       });
       
       onUpdate(response.data.data);
+      // Refresh Redux user state to update header avatar
+      dispatch(getCurrentUser());
     } catch (error) {
       console.error('Error uploading profile picture:', error);
       alert('Failed to upload profile picture. Please try again.');

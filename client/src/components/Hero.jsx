@@ -150,10 +150,10 @@ const Hero = () => {
             {/* Call to action buttons */}
             <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link
-                to="/register"
+                to="/interest"
                 className="px-8 py-4 bg-purple-700 text-white font-medium rounded-full hover:bg-purple-600 transition-all flex items-center justify-center shadow-lg shadow-purple-200 transform hover:scale-105"
               >
-                Become a Member <ArrowRight className="ml-2 h-5 w-5" />
+                Join Trailblazers Nation <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
               <Link
                 to="/events"

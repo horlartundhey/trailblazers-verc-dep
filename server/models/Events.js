@@ -97,11 +97,11 @@ const EventSchema = new mongoose.Schema({
         required: true
       },
       email: {
-        type: String,
-        required: true
+        type: String
       },
       phone: {
-        type: String
+        type: String,
+        required: true
       },
       status: {
         type: String,

@@ -268,24 +268,8 @@ const Events = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={guestFormData.email}
-                      onChange={handleGuestFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="your.email@example.com"
-                    />
-                  </div>
-
-                  <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number (Optional)
+                      Phone Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
@@ -293,8 +277,24 @@ const Events = () => {
                       name="phone"
                       value={guestFormData.phone}
                       onChange={handleGuestFormChange}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       placeholder="+1 (555) 000-0000"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={guestFormData.email}
+                      onChange={handleGuestFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="your.email@example.com"
                     />
                   </div>
 

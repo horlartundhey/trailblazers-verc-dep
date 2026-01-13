@@ -13,7 +13,7 @@ import MemberDashboard from './pages/member/Dashboard';
 import CompleteRegistration from './pages/member/CompleteRegistration';
 import PrivateRoute from './routes/PrivateRoute';
 import Index from './pages/Index';
-import RegisterMember from './pages/RegisterMember';
+import InterestForm from './pages/InterestForm';
 import Events from './pages/Events';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -80,7 +80,8 @@ const AppContent = () => {
       <Route path="/gallery" element={<Gallery />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<RegisterMember />} />
+      <Route path="/register" element={<Navigate to="/interest" replace />} />
+      <Route path="/interest" element={<InterestForm />} />
       
       {/* Protected routes with role-based access */}
       <Route element={<PrivateRoute allowedRoles={['Admin']} />}>

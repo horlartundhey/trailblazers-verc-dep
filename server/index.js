@@ -20,6 +20,8 @@ const messageRoutes = require('./routes/message.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const galleryRoutes = require('./routes/gallery.routes');
 const regionCampusRoutes = require('./routes/regionCampus.routes');
+const interestRoutes = require('./routes/interest.routes');
+const contactRoutes = require('./routes/contact.routes');
 
 // Initialize express app
 const app = express();
@@ -106,6 +108,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/region-campus', regionCampusRoutes);
+app.use('/api/interest', interestRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Root route
 app.get('/', (req, res) => {
