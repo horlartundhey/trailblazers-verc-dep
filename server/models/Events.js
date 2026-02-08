@@ -44,7 +44,12 @@ const EventSchema = new mongoose.Schema({
   capacity: {
     type: Number,
     required: [true, 'Event capacity is required']
-  },  image: {
+  },
+  spotsBooked: {
+    type: Number,
+    default: 0
+  },
+  image: {
     type: String,  // Store the image URL
     default: null
   },

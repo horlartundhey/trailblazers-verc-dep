@@ -24,14 +24,20 @@ const InterestForm = () => {
   const validateForm = () => {
     const errors = {};
 
-    if (!formData.name || formData.name.length < 2) {
+    // Required fields: name, location, phone
+    if (!formData.name || formData.name.trim().length < 2) {
       errors.name = 'Name must be at least 2 characters.';
+    }
+
+    if (!formData.location || formData.location.trim().length < 2) {
+      errors.location = 'Location is required.';
     }
 
     if (!formData.phone || formData.phone.length < 10) {
       errors.phone = 'Valid phone number is required.';
     }
 
+    // Optional fields - only validate format if provided
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Invalid email format.';
     }
@@ -206,10 +212,10 @@ const InterestForm = () => {
                 )}
               </div>
 
-              {/* Location - Optional */}
+              {/* Location - Required */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="location">
-                  Location <span className="text-gray-500 text-xs">(Optional)</span>
+                  Location <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -217,9 +223,15 @@ const InterestForm = () => {
                   id="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                    formErrors.location ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="City, State/Province"
+                  required
                 />
+                {formErrors.location && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.location}</p>
+                )}
               </div>
 
               {/* Church - Optional */}

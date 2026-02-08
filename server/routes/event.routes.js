@@ -23,6 +23,29 @@ router.post(
   eventController.registerGuest
 );
 
+// @desc    Guest attendance registration
+// @route   POST /api/events/:id/attendance
+// @access  Public
+router.post(
+  '/:id/attendance',
+  [
+    check('name', 'Name is required').not().isEmpty().trim(),
+    check('phone', 'Phone number is required').not().isEmpty().trim(),
+    check('location', 'Location is required').not().isEmpty().trim()
+  ],
+  eventController.registerGuestAttendance
+);
+
+// @desc    Get all attendance records (admin view)
+// @route   GET /api/events/attendance/all
+// @access  Private (Admin)
+router.get(
+  '/attendance/all',
+  protect,
+  authorize('Admin'),
+  eventController.getAllAttendance
+);
+
 // @desc    Member registration for event
 // @route   POST /api/events/:id/register
 // @access  Private (Members)

@@ -50,7 +50,7 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
 
   const registrationStatus = getRegistrationStatus();
   const userRegistered = isUserRegistered();
-  const isFull = event.registeredMembers?.filter(m => m.status === 'Confirmed').length >= event.capacity;
+  const isFull = (event.spotsBooked || 0) >= event.capacity;
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105">
@@ -75,7 +75,7 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
         {/* Registration status */}
         <div className="mt-4 mb-2">
           <p className={`text-sm font-medium ${isFull ? 'text-red-600' : 'text-green-600'}`}>
-            {event.registeredMembers?.filter(m => m.status === 'Confirmed').length || 0}/{event.capacity} spots filled
+            {event.spotsBooked || 0}/{event.capacity} spots filled
           </p>
         </div>
 
@@ -189,7 +189,7 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
                   onClick={() => onGuestRegister(event)}
                   className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors mb-2"
                 >
-                  Register as Guest
+                  Register Your Attendance
                 </button>
               )}
 
@@ -211,12 +211,6 @@ const EventCard = ({ event, user, onCheckIn, onViewDetails, onViewAttendance, on
               >
                 View Event Details
               </button>
-              <Link
-                to="/interest"
-                className="block w-full px-4 py-2 text-center bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
-              >
-                Show Interest to Join
-              </Link>
             </>
           )}
         </div>

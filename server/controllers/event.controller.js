@@ -1,5 +1,6 @@
 const Event = require('../models/Events');
 const User = require('../models/User');
+const EventAttendance = require('../models/EventAttendance');
 const { validationResult } = require('express-validator');
 const { sendEventNotification } = require('../utils/emailService');
 
@@ -737,6 +738,9 @@ exports.registerGuestForEvent = async (req, res) => {
       registrationDate: now
     });
 
+    // Increment spots booked
+    event.spotsBooked = (event.spotsBooked || 0) + 1;
+
     await event.save();
 
     res.json({
@@ -786,6 +790,10 @@ exports.cancelRegistration = async (req, res) => {
     
     // Update status to cancelled
     registration.status = 'Cancelled';
+    
+    // Decrement spots booked
+    event.spotsBooked = Math.max(0, (event.spotsBooked || 0) - 1);
+    
     await event.save();
     
     // If someone was waitlisted, move them to confirmed
@@ -835,10 +843,17 @@ exports.getPublicEvents = async (req, res) => {
       .populate('createdBy', 'name role')  // Include creator's name and role
       .select('-registeredMembers -__v');
     
+    // Ensure spotsBooked is always present
+    const eventsWithSpotsBooked = events.map(event => {
+      const eventObj = event.toObject();
+      eventObj.spotsBooked = eventObj.spotsBooked || 0;
+      return eventObj;
+    });
+    
     res.json({
       success: true,
-      count: events.length,
-      data: events,
+      count: eventsWithSpotsBooked.length,
+      data: eventsWithSpotsBooked,
     });
   } catch (error) {
     console.error('Get public events error:', error);
@@ -1152,6 +1167,9 @@ exports.registerMember = async (req, res) => {
       registrationDate: now
     });
 
+    // Increment spots booked
+    event.spotsBooked = (event.spotsBooked || 0) + 1;
+
     await event.save();
     
     console.log('Registration successful:', {
@@ -1179,3 +1197,124 @@ exports.registerMember = async (req, res) => {
   }
 };
 
+// @desc    Register guest attendance for event
+// @route   POST /api/events/:id/attendance
+// @access  Public
+exports.registerGuestAttendance = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const { name, phone, location, invitedBy } = req.body;
+    const eventId = req.params.id;
+
+    // Check if event exists
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if phone already registered for this event
+    const existingRegistration = await EventAttendance.findOne({
+      event: eventId,
+      phone: phone
+    });
+
+    if (existingRegistration) {
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered for this event'
+      });
+    }
+
+    // Create attendance record
+    const attendance = await EventAttendance.create({
+      name,
+      phone,
+      location,
+      invitedBy: invitedBy || '',
+      event: eventId,
+      eventName: event.name,
+      eventDate: event.date
+    });
+
+    // Increment spots booked for the event
+    event.spotsBooked = (event.spotsBooked || 0) + 1;
+    await event.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Attendance registered successfully',
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Guest attendance registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to register attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all attendance records for an event
+// @route   GET /api/events/:id/attendance
+// @access  Private (Admin, Leader)
+exports.getEventAttendance = async (req, res) => {
+  try {
+    const eventId = req.params.id;
+
+    // Check if event exists
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const attendance = await EventAttendance.find({ event: eventId })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: attendance.length,
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Get event attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch attendance records',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all attendance records (admin view)
+// @route   GET /api/events/attendance/all
+// @access  Private (Admin)
+exports.getAllAttendance = async (req, res) => {
+  try {
+    const attendance = await EventAttendance.find()
+      .sort({ eventDate: -1, createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: attendance.length,
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Get all attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch attendance records',
+      error: error.message
+    });
+  }
+};

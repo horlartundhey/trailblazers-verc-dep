@@ -8,6 +8,7 @@ const interestSchema = new mongoose.Schema({
   },
   email: {
     type: String,
+    required: false,
     trim: true,
     lowercase: true
   },
@@ -18,11 +19,13 @@ const interestSchema = new mongoose.Schema({
   },
   age: {
     type: Number,
+    required: false,
     min: 1,
     max: 120
   },
   location: {
     type: String,
+    required: true,
     trim: true
   },
   church: {

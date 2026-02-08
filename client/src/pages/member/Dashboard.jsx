@@ -121,7 +121,6 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
 const ProfileForm = ({ profile, onUpdate }) => {
   const [formData, setFormData] = useState({
     name: profile?.name || '',
-    email: profile?.email || '',
     phone: profile?.phone || '',
   });
   const [errors, setErrors] = useState({});
@@ -163,18 +162,6 @@ const ProfileForm = ({ profile, onUpdate }) => {
           className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
         />
         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Email</label>
-        <input
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
-          disabled
-        />
       </div>
       
       <div>
@@ -485,7 +472,7 @@ const MemberDashboard = () => {
                 } py-4 transition duration-200`}
                 onClick={() => setActiveTab('payments')}
               >
-                My Payments
+                Partnership
               </button>
             </div>
 
@@ -564,7 +551,7 @@ const MemberDashboard = () => {
                 } rounded-lg`}
                 onClick={() => { setActiveTab('payments'); setIsMobileMenuOpen(false); }}
               >
-                My Payments
+                Partnership
               </button>
               <button
                 className="block w-full text-left px-3 py-2 text-sm font-medium text-red-200 hover:text-white hover:bg-red-600 rounded-lg"
@@ -750,7 +737,7 @@ const MemberDashboard = () => {
           )};          {/* Payments Tab */}
             {activeTab === 'payments' && (
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">My Payment History</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Partnership History</h3>
                 <p className="text-sm text-gray-500 mb-6">Your contribution records and history</p>
                 
                 {/* Summary Stats by Currency */}

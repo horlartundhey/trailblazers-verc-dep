@@ -17,7 +17,12 @@ const Events = () => {
   const [showAttendance, setShowAttendance] = useState(false);
   const [attendanceData, setAttendanceData] = useState(null);
   const [showGuestRegistration, setShowGuestRegistration] = useState(false);
-  const [guestFormData, setGuestFormData] = useState({ name: '', email: '', phone: '' });
+  const [guestFormData, setGuestFormData] = useState({ 
+    name: '', 
+    phone: '', 
+    location: '', 
+    invitedBy: '' 
+  });
   const [guestRegistrationLoading, setGuestRegistrationLoading] = useState(false);
   const [guestRegistrationSuccess, setGuestRegistrationSuccess] = useState(false);
   const { user } = useSelector(state => state.auth);
@@ -106,15 +111,21 @@ const Events = () => {
     setError(null);
 
     try {
-      const response = await API.post(`/api/events/${selectedEvent._id}/register-guest`, {
+      const response = await API.post(`/api/events/${selectedEvent._id}/attendance`, {
         name: guestFormData.name,
-        email: guestFormData.email,
-        phone: guestFormData.phone
+        phone: guestFormData.phone,
+        location: guestFormData.location,
+        invitedBy: guestFormData.invitedBy
       });
 
       if (response.data.success) {
         setGuestRegistrationSuccess(true);
-        setGuestFormData({ name: '', email: '', phone: '' });
+        setGuestFormData({ 
+          name: '', 
+          phone: '', 
+          location: '', 
+          invitedBy: '' 
+        });
         
         // Refresh events to show updated capacity
         const eventsResponse = await API.get('/api/public/events');
@@ -128,8 +139,8 @@ const Events = () => {
         }, 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to register for event. Please try again.');
-      console.error('Guest registration error:', err);
+      setError(err.response?.data?.message || 'Failed to register attendance. Please try again.');
+      console.error('Guest attendance registration error:', err);
     } finally {
       setGuestRegistrationLoading(false);
     }
@@ -138,7 +149,12 @@ const Events = () => {
   const closeGuestRegistrationModal = () => {
     setShowGuestRegistration(false);
     setSelectedEvent(null);
-    setGuestFormData({ name: '', email: '', phone: '' });
+    setGuestFormData({ 
+      name: '', 
+      phone: '', 
+      location: '', 
+      invitedBy: '' 
+    });
     setGuestRegistrationSuccess(false);
     setError(null);
   };
@@ -150,6 +166,14 @@ const Events = () => {
       </div>
     );
   }
+
+  // Filter to show only upcoming events
+  const upcomingEvents = events.filter(event => {
+    const eventDate = new Date(event.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    return eventDate >= today;
+  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -174,11 +198,11 @@ const Events = () => {
         </div>
       )}
 
-      {events.length === 0 && !loading ? (
-        <p className="text-center text-gray-600">No events scheduled at the moment.</p>
+      {upcomingEvents.length === 0 && !loading ? (
+        <p className="text-center text-gray-600">No upcoming events scheduled at the moment.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((event) => (
+          {upcomingEvents.map((event) => (
             <EventCard
               key={event._id}
               event={event}
@@ -223,7 +247,7 @@ const Events = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Register as Guest</h2>
+                <h2 className="text-2xl font-bold">Register Your Attendance</h2>
                 <button
                   onClick={closeGuestRegistrationModal}
                   className="text-gray-500 hover:text-gray-700"
@@ -246,7 +270,7 @@ const Events = () => {
                     <svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <p className="text-green-700 font-medium">Registration successful! Check your email for confirmation.</p>
+                    <p className="text-green-700 font-medium">You have successfully registered for this event, we will be in touch to share more information about the event</p>
                   </div>
                 </div>
               ) : (
@@ -284,17 +308,33 @@ const Events = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address (Optional)
+                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                      Location <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={guestFormData.email}
+                      type="text"
+                      id="location"
+                      name="location"
+                      value={guestFormData.location}
+                      onChange={handleGuestFormChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Your city or area"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="invitedBy" className="block text-sm font-medium text-gray-700 mb-1">
+                      Invited By (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="invitedBy"
+                      name="invitedBy"
+                      value={guestFormData.invitedBy}
                       onChange={handleGuestFormChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="your.email@example.com"
+                      placeholder="Name of the person who invited you"
                     />
                   </div>
 

@@ -33,6 +33,10 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   });
   const [users, setUsers] = useState([]);
   const [interests, setInterests] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [selectedEventAttendance, setSelectedEventAttendance] = useState(null);
+  const [eventAttendanceList, setEventAttendanceList] = useState([]);
 
   // For the Users modal
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -85,15 +89,18 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       const paymentsData = paymentsResponse.data.data || [];
       
       // Fetch regions and campuses from RegionCampus management
-      const [regionsResponse, campusesResponse, interestsResponse] = await Promise.all([
+      const [regionsResponse, campusesResponse, interestsResponse, attendanceResponse] = await Promise.all([
         API.get('/api/region-campus/regions'),
         API.get('/api/region-campus/campuses'),
-        API.get('/api/interest')
+        API.get('/api/interest'),
+        API.get('/api/events/attendance/all')
       ]);
       const regionsData = regionsResponse.data.data || [];
       const campusesData = campusesResponse.data.data || [];
       const interestsData = interestsResponse.data.data || [];
+      const attendanceData = attendanceResponse.data.data || [];
       setInterests(interestsData);
+      setAttendance(attendanceData);
         
       // Calculate dashboard statistics from user data
       const totalMembers = userData.filter(user => user.role === 'Member').length;
@@ -274,9 +281,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             event._id === eventId ? response.data.data : event
           )
         );
-        setSuccessMessage('Event updated successfully!');
+        
+        // Close modal and clear selected event
+        setShowModal(false);
+        setSelectedEvent(null);
         setIsEditingEvent(false);
-        setActiveTab('events');
+        setSuccessMessage('Event updated successfully!');
       } else {
         const response = await API.put(`/api/events/${eventId}`, eventData);
         
@@ -286,13 +296,16 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             event._id === eventId ? response.data.data : event
           )
         );
-        setSuccessMessage('Event updated successfully!');
+        
+        // Close modal and clear selected event
+        setShowModal(false);
+        setSelectedEvent(null);
         setIsEditingEvent(false);
-        setActiveTab('events');
+        setSuccessMessage('Event updated successfully!');
       }
       
-      // Show success message
-      setSuccessMessage('Event updated successfully!');
+      // Refetch events to ensure data consistency
+      await fetchDashboardData();
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to update event';
       setErrorMessage(errorMsg);
@@ -539,10 +552,30 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 activeTab === 'interests' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
+              } font-medium relative`}
               onClick={() => setActiveTab('interests')}
             >
               Interest Submissions
+              {interests.filter(i => i.status === 'Pending').length > 0 && (
+                <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {interests.filter(i => i.status === 'Pending').length}
+                </span>
+              )}
+            </button>
+            <button
+              className={`py-4 px-1 border-b-2 ${
+                activeTab === 'attendance' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } font-medium relative`}
+              onClick={() => setActiveTab('attendance')}
+            >
+              Event Attendance
+              {attendance.length > 0 && (
+                <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {attendance.length}
+                </span>
+              )}
             </button>
             <button
               className={`py-4 px-1 border-b-2 ${
@@ -982,6 +1015,90 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
           </div>
         )}
 
+        {/* Event Attendance Tab */}
+        {activeTab === 'attendance' && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-5 sm:px-6 bg-gray-50">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">Event Attendance</h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                View guest registrations organized by events
+              </p>
+            </div>
+            <div className="px-4 py-5 sm:p-6">
+              {attendance.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No attendance records</h3>
+                  <p className="mt-1 text-sm text-gray-500">No guests have registered for event attendance yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Group attendance by event */}
+                  {(() => {
+                    // Create a map of events with their attendance
+                    const eventAttendanceMap = {};
+                    attendance.forEach(record => {
+                      const eventId = record.event;
+                      if (!eventAttendanceMap[eventId]) {
+                        eventAttendanceMap[eventId] = {
+                          eventName: record.eventName,
+                          eventDate: record.eventDate,
+                          records: []
+                        };
+                      }
+                      eventAttendanceMap[eventId].records.push(record);
+                    });
+
+                    return Object.entries(eventAttendanceMap).map(([eventId, eventData]) => (
+                      <div key={eventId} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                        <div className="p-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                                {eventData.eventName}
+                              </h4>
+                              <p className="text-sm text-gray-500">
+                                {new Date(eventData.eventDate).toLocaleDateString('en-US', { 
+                                  weekday: 'short', 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center justify-center px-3 py-1 text-sm font-bold leading-none text-white bg-indigo-600 rounded-full">
+                              {eventData.records.length}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                              <span>Total Registrations</span>
+                              <span className="font-semibold">{eventData.records.length}</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSelectedEventAttendance(eventData.eventName);
+                                setEventAttendanceList(eventData.records);
+                                setAttendanceModalOpen(true);
+                              }}
+                              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+                            >
+                              View Attendance List
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'events' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
@@ -1343,6 +1460,99 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
       />
+
+      {/* Attendance Details Modal */}
+      {attendanceModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setAttendanceModalOpen(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="w-full">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                        Attendance List - {selectedEventAttendance}
+                      </h3>
+                      <button
+                        onClick={() => setAttendanceModalOpen(false)}
+                        className="text-gray-400 hover:text-gray-500"
+                      >
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="mt-4">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invited By</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {eventAttendanceList.map((record) => (
+                              <tr key={record._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium text-gray-900">{record.name}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{record.phone}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{record.location}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-500">{record.invitedBy || 'N/A'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    record.status === 'Registered' ? 'bg-green-100 text-green-800' :
+                                    record.status === 'Checked In' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {record.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {new Date(record.createdAt).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceModalOpen(false)}
+                  className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
   

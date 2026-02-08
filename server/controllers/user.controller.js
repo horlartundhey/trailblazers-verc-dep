@@ -909,3 +909,134 @@ exports.getProfile = async (req, res) => {
     });
   }
 };
+
+// @desc    Delete user (Admin only)
+// @route   DELETE /api/users/:id
+// @access  Private (Admin)
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete user'
+    });
+  }
+};
+
+// @desc    Reassign user to different region/campus (Admin only)
+// @route   PATCH /api/users/:id/reassign
+// @access  Private (Admin)
+exports.reassignUser = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { region, campus } = req.body;
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.region = region;
+    user.campus = campus;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User reassigned successfully',
+      data: user
+    });
+  } catch (error) {
+    console.error('Reassign user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reassign user'
+    });
+  }
+};
+
+// @desc    Change user role (Admin only)
+// @route   PATCH /api/users/:id/role
+// @access  Private (Admin)
+exports.changeUserRole = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { role, position } = req.body;
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // If promoting to Leader, ensure they have a position
+    if (role === 'Leader' && !user.position && !position) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a position for the leader role'
+      });
+    }
+
+    // Update registration status based on role
+    if (role === 'Admin' || role === 'Leader') {
+      user.registrationStatus = 'Completed';
+    }
+
+    user.role = role;
+    
+    // If position is provided, update it
+    if (position) {
+      user.position = position;
+    }
+    
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User role changed to ${role} successfully`,
+      data: user
+    });
+  } catch (error) {
+    console.error('Change user role error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to change user role'
+    });
+  }
+};

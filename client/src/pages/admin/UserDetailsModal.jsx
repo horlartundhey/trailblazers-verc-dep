@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Calendar, X, ZoomIn } from 'lucide-react';
 import API from '../../utils/api';
+import AdminUserActions from '../../components/AdminUserActions';
 
-const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {  const [user, setUser] = useState(null);
+const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {  const [user, setUser] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
@@ -271,6 +272,16 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token }) => {  const [user,
                     </p>
                   </div>
                 </div>
+
+                {/* Admin Actions Component */}
+                <AdminUserActions 
+                  user={user} 
+                  onUpdate={() => {
+                    fetchUserDetails();
+                    if (onUserUpdate) onUserUpdate();
+                  }}
+                  onClose={onClose}
+                />
               </div>
             )}
 

@@ -86,6 +86,7 @@ router.get(
 // @access  Private (All roles)
 router.patch(
   '/me',
+  protect,
   [
     check('name', 'Name is required').optional().not().isEmpty(),
     check('email', 'Please include a valid email').optional().isEmail(),
@@ -129,13 +130,13 @@ router.get(
   userController.getUsersByRegionCampus
 );
 
-// @desc    Create a new member (Leader only for their region/campus)
+// @desc    Create a new member (Admin only)
 // @route   POST /api/users/members
-// @access  Private (Admin & Leader)
+// @access  Private (Admin only)
 router.post(
   '/members',
   protect,
-  authorize('Admin', 'Leader'),
+  authorize('Admin'),
   [
     check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
@@ -167,6 +168,43 @@ router.get(
   protect,
   authorize('Admin', 'Leader'),
   userController.getUserById
+);
+
+// @desc    Delete user by ID (Admin only)
+// @route   DELETE /api/users/:id
+// @access  Private (Admin only)
+router.delete(
+  '/:id',
+  protect,
+  authorize('Admin'),
+  userController.deleteUser
+);
+
+// @desc    Reassign user to different region/campus (Admin only)
+// @route   PATCH /api/users/:id/reassign
+// @access  Private (Admin only)
+router.patch(
+  '/:id/reassign',
+  protect,
+  authorize('Admin'),
+  [
+    check('region', 'Region is required').not().isEmpty(),
+    check('campus', 'Campus is required').not().isEmpty(),
+  ],
+  userController.reassignUser
+);
+
+// @desc    Change user role (Admin only)
+// @route   PATCH /api/users/:id/role
+// @access  Private (Admin only)
+router.patch(
+  '/:id/role',
+  protect,
+  authorize('Admin'),
+  [
+    check('role', 'Role is required').isIn(['Admin', 'Leader', 'Member']),
+  ],
+  userController.changeUserRole
 );
 
 // In routes/user.routes.js or similar

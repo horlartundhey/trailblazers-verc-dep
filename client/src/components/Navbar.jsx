@@ -69,7 +69,7 @@ const Navbar = () => {
                   to="/register" 
                   className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                 >
-                  Register
+                  Become a Member
                 </Link>
               </>
             )}
@@ -148,7 +148,7 @@ const Navbar = () => {
                   className="block px-3 py-2 rounded-md text-base font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Register
+                  Become a Member
                 </Link>
               </>
             )}

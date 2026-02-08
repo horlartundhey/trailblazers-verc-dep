@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, MapPin, RefreshCw } from 'lucide-react';
 import API from '../../utils/api';
+import BackButton from '../../components/BackButton';
 
 const AdminRegionCampusManagement = () => {
   const [activeTab, setActiveTab] = useState('regions');
@@ -181,7 +182,8 @@ const AdminRegionCampusManagement = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
+      <BackButton />
+      <div className="mb-6 mt-4">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Region & Campus Management</h1>

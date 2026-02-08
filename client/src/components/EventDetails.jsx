@@ -109,18 +109,6 @@ const EventDetails = ({ event, isOpen, onClose, user }) => {
 
             {/* Action buttons */}
             <div className="mt-6 space-y-3">
-              {/* Non-member actions */}
-              {!user && (
-                <>
-                  <a
-                    href="/interest"
-                    className="block w-full px-4 py-2 text-center bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
-                  >
-                    Show Interest to Join
-                  </a>
-                </>
-              )}
-
               {/* Member actions */}
               {isMember && (
                 <>

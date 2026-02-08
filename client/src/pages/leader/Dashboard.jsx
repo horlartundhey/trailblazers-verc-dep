@@ -177,8 +177,9 @@ const Dashboard = () => {
 
   const [payments, setPayments] = useState([]);
 const [paymentStats, setPaymentStats] = useState({
-  totalContributions: 0,
-  monthlyBreakdown: {}
+  totalsByCurrency: {},
+  totalsByMonth: {},
+  totalsByMonthAndCurrency: {}
 });
 
   const [successMessage, setSuccessMessage] = useState('');
@@ -255,16 +256,46 @@ const [paymentStats, setPaymentStats] = useState({
       const membersData = membersResponse.data.data || [];
       const eventsData = eventsResponse.data.data || [];
       const paymentsData = paymentsResponse.data.data || [];
-      const totalContributions = paymentsResponse.data.totalContributions || 0;
+      
+      // Process payments by currency
+      const totalsByCurrency = {};
+      const totalsByMonth = {};
+      const totalsByMonthAndCurrency = {};
+      
+      paymentsData.forEach(payment => {
+        const currency = payment.currency || 'USD';
+        const month = payment.month;
+        
+        // Update totals by currency
+        totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
+        
+        // Update totals by month
+        if (month) {
+          totalsByMonth[month] = (totalsByMonth[month] || 0) + payment.amount;
+        }
+        
+        // Update totals by month and currency
+        if (month) {
+          if (!totalsByMonthAndCurrency[month]) {
+            totalsByMonthAndCurrency[month] = {};
+          }
+          totalsByMonthAndCurrency[month][currency] = 
+            (totalsByMonthAndCurrency[month][currency] || 0) + payment.amount;
+        }
+      });
       
       // Update all state in one batch
       setUsers(membersData);
       setEvents(eventsData);
       setPayments(paymentsData);
       setPaymentStats({
-        totalContributions,
-        monthlyBreakdown: paymentsResponse.data.monthlyBreakdown || {}
+        totalsByCurrency,
+        totalsByMonth,
+        totalsByMonthAndCurrency
       });
+      
+      // Calculate total payments from all currencies
+      const totalPayments = Object.values(totalsByCurrency).reduce((sum, val) => sum + val, 0);
       
       setStats({
         totalMembers: membersData.length,
@@ -275,7 +306,7 @@ const [paymentStats, setPaymentStats] = useState({
           member => member.registrationStatus === 'Completed'
         ).length,
         totalEvents: eventsData.length,
-        totalPayments: totalContributions 
+        totalPayments 
       });
       
       setError(null);
@@ -714,19 +745,6 @@ const formatCurrencyAmount = (amount, currency) => {
             </button>
             <button
               className={`px-4 py-4 inline-flex items-center ${
-                activeTab === 'createMember'
-                  ? 'border-b-2 border-indigo-500 text-indigo-600'
-                  : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
-              } transition-colors duration-200 ease-in-out focus:outline-none`}
-              onClick={() => setActiveTab('createMember')}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-              Create Member
-            </button>
-            <button
-              className={`px-4 py-4 inline-flex items-center ${
                 activeTab === 'events'
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
@@ -749,7 +767,7 @@ const formatCurrencyAmount = (amount, currency) => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              My Payments
+              Partnership
             </button>
 
             
@@ -843,14 +861,8 @@ const formatCurrencyAmount = (amount, currency) => {
         {/* Members Tab */}
         {activeTab === 'members' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
+            <div className="px-4 py-5 sm:px-6 bg-gray-50">
               <h3 className="text-lg font-medium leading-6 text-gray-900">Member Management</h3>
-              <button
-                onClick={() => setActiveTab('createMember')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
-              >
-                Add Member
-              </button>
             </div>
             
             {/* Filter Section */}
@@ -957,154 +969,6 @@ const formatCurrencyAmount = (amount, currency) => {
                   </tbody>
                 </table>
               )}
-            </div>
-          </div>
-        )}
-        
-        {/* Create Member Tab */}
-        {activeTab === 'createMember' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Create New Member</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Add a new member to your region and campus
-              </p>
-            </div>
-            <div className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Name Field */}
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-                      placeholder="Enter full name"
-                      required
-                    />
-                  </div>
-
-                  {/* Email Field */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-                      placeholder="email@example.com"
-                      required
-                    />
-                  </div>
-
-                  {/* Phone Field */}
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="+1234567890"
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-                    />
-                  </div>
-
-                  {/* Password Field */}
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-                      placeholder="Minimum 6 characters"
-                      required
-                      minLength="6"
-                    />
-                  </div>
-
-                  {/* Confirm Password Field */}
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-                      placeholder="Re-enter password"
-                      required
-                    />
-                  </div>
-
-                  {/* Region Field (read-only, based on leader's region) */}
-                  <div>
-                    <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
-                      Region
-                    </label>
-                    <input
-                      type="text"
-                      id="region"
-                      name="region"
-                      value={user?.region || ''}
-                      readOnly
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-gray-50 text-gray-600 cursor-not-allowed focus:outline-none sm:text-sm"
-                    />
-                  </div>
-
-                  {/* Campus Field (read-only, based on leader's campus) */}
-                  <div>
-                    <label htmlFor="campus" className="block text-sm font-medium text-gray-700 mb-1">
-                      Campus
-                    </label>
-                    <input
-                      type="text"
-                      id="campus"
-                      name="campus"
-                      value={user?.campus || ''}
-                      readOnly
-                      className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 bg-gray-50 text-gray-600 cursor-not-allowed focus:outline-none sm:text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('members')}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Create Member
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         )}
@@ -1398,7 +1262,7 @@ const formatCurrencyAmount = (amount, currency) => {
                   {formatCurrencyAmount(payments[0].amount, payments[0].currency)}
                 </p>
                 <p className="mt-1 text-sm text-purple-700">
-                  {parseAndFormatMonth(payments[0].month)}
+                  {formatSafeDate(payments[0].createdAt)}
                 </p>
                 <p className="text-xs text-purple-600 mt-1">
                   via {payments[0].paymentMethod || 'N/A'}
@@ -1441,7 +1305,6 @@ const formatCurrencyAmount = (amount, currency) => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Currency</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
@@ -1452,9 +1315,6 @@ const formatCurrencyAmount = (amount, currency) => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">              {payments.map(payment => (
                 <tr key={payment._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatPaymentMonth(payment.month)}
-                  </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {payment.currency}
                     </td>
