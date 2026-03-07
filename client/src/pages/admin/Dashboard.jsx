@@ -55,6 +55,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [regionPage, setRegionPage] = useState(1);
+  const [campusPage, setCampusPage] = useState(1);
+  const itemsPerPage = 5;
   const [filterParams, setFilterParams] = useState({
     role: '',
     region: '',
@@ -165,6 +168,42 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Mark interests as viewed when tab is clicked
+  const markInterestsAsViewed = async () => {
+    try {
+      await API.put('/api/interest/mark-viewed');
+      // Refresh interests data to get updated viewedBy arrays
+      const interestsResponse = await API.get('/api/interest');
+      const interestsData = interestsResponse.data.data || [];
+      setInterests(interestsData);
+    } catch (error) {
+      console.error('Failed to mark interests as viewed:', error);
+    }
+  };
+
+  // Mark attendance as viewed when tab is clicked
+  const markAttendanceAsViewed = async () => {
+    try {
+      await API.put('/api/events/attendance/mark-viewed');
+      // Refresh attendance data to get updated viewedBy arrays
+      const attendanceResponse = await API.get('/api/events/attendance/all');
+      const attendanceData = attendanceResponse.data.data || [];
+      setAttendance(attendanceData);
+    } catch (error) {
+      console.error('Failed to mark attendance as viewed:', error);
+    }
+  };
+
+  // Handle tab change with mark as viewed logic
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'interests') {
+      markInterestsAsViewed();
+    } else if (tab === 'attendance') {
+      markAttendanceAsViewed();
+    }
+  };
 
   const handleCreateEvent = async (eventData) => {
     try {
@@ -496,19 +535,21 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          {/* Scrollable tabs on mobile with gradient indicator */}
+          <div className="relative">
+            <div className="flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-thin -mb-px pb-2">
+              <button
+                className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
+                  activeTab === 'dashboard' 
+                    ? 'border-indigo-500 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                } font-medium`}
+                onClick={() => setActiveTab('dashboard')}
+              >
+                Dashboard
+              </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
-                activeTab === 'dashboard' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              Dashboard
-            </button>
-            <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'gallery' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -518,7 +559,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               Gallery
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'users' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -528,7 +569,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               Users
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'createUser' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -538,7 +579,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               Create User
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'events' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -548,37 +589,37 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               Events
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'interests' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } font-medium relative`}
-              onClick={() => setActiveTab('interests')}
+              onClick={() => handleTabChange('interests')}
             >
               Interest Submissions
-              {interests.filter(i => i.status === 'Pending').length > 0 && (
+              {user && interests.filter(i => !i.viewedBy?.includes(user._id)).length > 0 && (
                 <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  {interests.filter(i => i.status === 'Pending').length}
+                  {interests.filter(i => !i.viewedBy?.includes(user._id)).length}
                 </span>
               )}
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'attendance' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } font-medium relative`}
-              onClick={() => setActiveTab('attendance')}
+              onClick={() => handleTabChange('attendance')}
             >
               Event Attendance
-              {attendance.length > 0 && (
+              {user && attendance.filter(a => !a.viewedBy?.includes(user._id)).length > 0 && (
                 <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  {attendance.length}
+                  {attendance.filter(a => !a.viewedBy?.includes(user._id)).length}
                 </span>
               )}
             </button>
             <button
-              className={`py-4 px-1 border-b-2 ${
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'regions' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -588,7 +629,11 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               Regions & Campuses
             </button>
           </div>
+          
+          {/* Scroll indicator gradient - visible only on mobile */}
+          <div className="md:hidden absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none"></div>
         </div>
+      </div>
       </nav>
       
       {/* Main content */}
@@ -629,24 +674,41 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 </div>
                 <div className="p-6">
                   {stats.regions.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {stats.regions.map(region => (
-                        <div key={region._id} className="border rounded p-4 flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium">{region.name}</h4>
-                            <p className="text-sm text-gray-500">{region.memberCount} members</p>
+                    <>
+                      <div className="grid grid-cols-1 gap-4">
+                        {stats.regions
+                          .slice((regionPage - 1) * itemsPerPage, regionPage * itemsPerPage)
+                          .map(region => (
+                          <div key={region._id} className="border rounded p-4 flex justify-between items-center">
+                            <div>
+                              <h4 className="font-medium">{region.name}</h4>
+                              <p className="text-sm text-gray-500">{region.memberCount} members</p>
+                            </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <button
-                              className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200"
-                              onClick={() => setFilterParams(prev => ({...prev, region: region._id}))}
-                            >
-                              Filter
-                            </button>
-                          </div>
+                        ))}
+                      </div>
+                      {stats.regions.length > itemsPerPage && (
+                        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                          <button
+                            onClick={() => setRegionPage(Math.max(1, regionPage - 1))}
+                            disabled={regionPage === 1}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            Page {regionPage} of {Math.ceil(stats.regions.length / itemsPerPage)}
+                          </span>
+                          <button
+                            onClick={() => setRegionPage(Math.min(Math.ceil(stats.regions.length / itemsPerPage), regionPage + 1))}
+                            disabled={regionPage >= Math.ceil(stats.regions.length / itemsPerPage)}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   ) : (
                     <p className="text-gray-500">No regions found</p>
                   )}
@@ -659,24 +721,41 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 </div>
                 <div className="p-6">
                   {stats.campuses.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {stats.campuses.map(campus => (
-                        <div key={campus._id} className="border rounded p-4 flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium">{campus.name}</h4>
-                            <p className="text-sm text-gray-500">{campus.memberCount} members</p>
+                    <>
+                      <div className="grid grid-cols-1 gap-4">
+                        {stats.campuses
+                          .slice((campusPage - 1) * itemsPerPage, campusPage * itemsPerPage)
+                          .map(campus => (
+                          <div key={campus._id} className="border rounded p-4 flex justify-between items-center">
+                            <div>
+                              <h4 className="font-medium">{campus.name}</h4>
+                              <p className="text-sm text-gray-500">{campus.memberCount} members</p>
+                            </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <button
-                              className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200"
-                              onClick={() => setFilterParams(prev => ({...prev, campus: campus._id}))}
-                            >
-                              Filter
-                            </button>
-                          </div>
+                        ))}
+                      </div>
+                      {stats.campuses.length > itemsPerPage && (
+                        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                          <button
+                            onClick={() => setCampusPage(Math.max(1, campusPage - 1))}
+                            disabled={campusPage === 1}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            Page {campusPage} of {Math.ceil(stats.campuses.length / itemsPerPage)}
+                          </span>
+                          <button
+                            onClick={() => setCampusPage(Math.min(Math.ceil(stats.campuses.length / itemsPerPage), campusPage + 1))}
+                            disabled={campusPage >= Math.ceil(stats.campuses.length / itemsPerPage)}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   ) : (
                     <p className="text-gray-500">No campuses found</p>
                   )}
@@ -728,82 +807,49 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               </button>
             </div>
             
-            {/* Filter Section */}
-            <div className="p-4 border-b">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Role</label>
-                  <select
-                    name="role"
-                    value={filterParams.role}
-                    onChange={handleFilterChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">All Roles</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Leader">Leader</option>
-                    <option value="Member">Member</option>
-                  </select>
+            {/* User Statistics Section */}
+            <div className="p-4 border-b bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">User Statistics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Role Statistics */}
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Total Users</p>
+                  <p className="text-2xl font-bold text-indigo-600">{users.length}</p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Region</label>
-                  <select
-                    name="region"
-                    value={filterParams.region}
-                    onChange={handleFilterChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">All Regions</option>
-                    {regions.map((region, index) => (
-                      <option key={index} value={region}>{region}</option>
-                    ))}
-                  </select>
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Admins</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {users.filter(u => u.role === 'Admin').length}
+                  </p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Campus</label>
-                  <select
-                    name="campus"
-                    value={filterParams.campus}
-                    onChange={handleFilterChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">All Campuses</option>
-                    {campuses.map((campus, index) => (
-                      <option key={index} value={campus}>{campus}</option>
-                    ))}
-                  </select>
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Leaders</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {users.filter(u => u.role === 'Leader').length}
+                  </p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <select
-                    name="registrationStatus"
-                    value={filterParams.registrationStatus}
-                    onChange={handleFilterChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Completed">Completed</option>
-                  </select>
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Members</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {users.filter(u => u.role === 'Member').length}
+                  </p>
                 </div>
               </div>
               
-              <div className="mt-4 flex justify-end space-x-3">
-                <button
-                  onClick={resetFilters}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={applyFilters}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
-                >
-                  Apply Filters
-                </button>
+              {/* Registration Status */}
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Completed</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {users.filter(u => u.registrationStatus === 'Completed').length}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg shadow-sm">
+                  <p className="text-xs text-gray-600 mb-1">Pending</p>
+                  <p className="text-xl font-bold text-yellow-600">
+                    {users.filter(u => u.registrationStatus === 'Pending').length}
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -994,12 +1040,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              interest.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                              interest.status === 'Pending' ? 'bg-blue-100 text-blue-800' :
                               interest.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                              interest.status === 'Reviewed' ? 'bg-blue-100 text-blue-800' :
+                              interest.status === 'Reviewed' ? 'bg-gray-100 text-gray-800' :
                               'bg-red-100 text-red-800'
                             }`}>
-                              {interest.status}
+                              {interest.status === 'Pending' ? 'Submitted' : interest.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1142,7 +1188,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       <td className="px-6 py-4 whitespace-nowrap">
                         {event.image ? (
                           <img 
-                            src={event.image.startsWith('http://') || event.image.startsWith('https://') ? event.image : `http://localhost:5000${event.image}`} 
+                            src={event.image.startsWith('http://') || event.image.startsWith('https://') ? event.image : `https://trailblazers-verc-server.vercel.app${event.image}`} 
                             alt={event.name}
                             className="h-12 w-12 rounded object-cover"
                             onError={(e) => {
@@ -1302,7 +1348,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                   {selectedEvent.image && (
                     <div className="mb-6">
                       <img 
-                        src={selectedEvent.image.startsWith('http://') || selectedEvent.image.startsWith('https://') ? selectedEvent.image : `http://localhost:5000${selectedEvent.image}`}
+                        src={selectedEvent.image.startsWith('http://') || selectedEvent.image.startsWith('https://') ? selectedEvent.image : `https://trailblazers-verc-server.vercel.app${selectedEvent.image}`}
                         alt={selectedEvent.name}
                         className="w-full h-64 object-cover rounded-lg shadow-md"
                         onError={(e) => {
@@ -1592,7 +1638,8 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath; // Already full URL
-    return `http://localhost:5000${imagePath}`; // Prepend base URL
+    return `https://trailblazers-verc-server.vercel.app${imagePath}`; // Prepend base URL
+    // return `http://localhost:5000${imagePath}`; // For local development
   };
 
   console.log('EventForm initialData:', initialData);
@@ -1811,6 +1858,7 @@ const EventForm = ({ onSubmit, regions, campuses, initialData = {} }) => {
             className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
           >
             <option value="Public">Open to Visitors</option>
+            <option value="All">Open to All (Members & Leaders)</option>
             <option value="Members">Members Only</option>
             <option value="Leaders">Leaders Only</option>
           </select>
@@ -1950,6 +1998,7 @@ const UserForm = ({ onUserCreated }) => {
       email: '',
       phone: '',
       password: '',
+      memberCode: '', // For admin-assigned member code
       role: 'Member', // Default role
       region: '',
       campus: '',
@@ -2011,6 +2060,11 @@ const UserForm = ({ onUserCreated }) => {
           password: formData.password,
           role: formData.role
         };
+
+        // Add memberCode if provided for Members
+        if (formData.role === 'Member' && formData.memberCode && formData.memberCode.trim()) {
+          payload.memberCode = formData.memberCode.trim();
+        }
   
         // Handle region and campus based on role
         if (formData.role === 'Member' || formData.role === 'Leader') {
@@ -2042,7 +2096,7 @@ const UserForm = ({ onUserCreated }) => {
   
         // Display success message and reset form
         setSuccess(`${formData.role} created successfully!${
-          formData.role === 'Member' ? ' Registration status is Pending.' : ''
+          formData.role === 'Member' ? ' User can now log in with full access.' : ''
         }`);
         
         // Call parent callback to refresh dashboard data
@@ -2056,6 +2110,7 @@ const UserForm = ({ onUserCreated }) => {
           email: '',
           phone: '',
           password: '',
+          memberCode: '',
           role: 'Member',
           region: '',
           campus: '',
@@ -2145,6 +2200,28 @@ const UserForm = ({ onUserCreated }) => {
               className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             />
           </div>
+
+          {formData.role === 'Member' && currentUserRole === 'Admin' && (
+            <div>
+              <label htmlFor="memberCode" className="block text-sm font-medium text-gray-700 mb-1">
+                Member Code (Optional)
+              </label>
+              <input
+                type="text"
+                name="memberCode"
+                id="memberCode"
+                value={formData.memberCode}
+                onChange={handleChange}
+                placeholder="e.g., TBN-12345"
+                pattern="TBN-\d{5}"
+                title="Format: TBN-XXXXX (5 digits)"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Leave blank to auto-generate. Format: TBN-XXXXX (e.g., TBN-12345)
+              </p>
+            </div>
+          )}
   
           <div>
             <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Role</label>
@@ -2259,7 +2336,7 @@ const UserForm = ({ onUserCreated }) => {
         {formData.role === 'Member' && (
           <div className="mt-4 text-sm text-gray-500 bg-gray-50 p-3 rounded">
             <p>Note: A member must be associated with a region and campus that has an existing Leader. 
-            The registration status will be set to "Pending" until approved.</p>
+            Admin-created members are automatically set to "Completed" status and can log in immediately.</p>
           </div>
         )}
   

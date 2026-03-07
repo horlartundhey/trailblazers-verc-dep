@@ -2,6 +2,7 @@
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
+const cloudinary = require('../utils/cloudinary');
 
 // @desc    Record a new payment
 // @route   POST /api/payments
@@ -79,9 +80,45 @@ exports.recordPayment = async (req, res) => {
 
     // Add proof of payment if file was uploaded
     if (req.file) {
-      // If using Cloudinary, upload the file and use the secure_url
-      // For now, store the file path
-      paymentData.proofOfPayment = `/uploads/payment-proofs/${req.file.filename}`;
+      try {
+        let imageUrl;
+        
+        // Check if running in production (Vercel) or development
+        if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+          // Upload buffer to Cloudinary in production
+          console.log('Uploading payment proof to Cloudinary (production)...');
+          const uploadStream = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              {
+                folder: 'payment-proofs',
+                resource_type: 'auto'
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            stream.end(req.file.buffer);
+          });
+          imageUrl = uploadStream.secure_url;
+          console.log('Payment proof uploaded to Cloudinary:', imageUrl);
+        } else {
+          // In development, upload local file to Cloudinary
+          console.log('Uploading payment proof to Cloudinary (development)...');
+          const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'payment-proofs',
+            resource_type: 'auto'
+          });
+          imageUrl = result.secure_url;
+          console.log('Payment proof uploaded to Cloudinary:', imageUrl);
+        }
+        
+        paymentData.proofOfPayment = imageUrl;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        // Continue without proof of payment rather than failing entire request
+        console.log('Payment will be created without proof of payment due to upload error');
+      }
     }
 
     console.log('Creating payment with data:', paymentData);
@@ -192,15 +229,28 @@ exports.getMyPayments = async (req, res) => {
   try {
     const payments = await Payment.find({ userId: req.user.id })
       .populate('recordedBy', 'name')
-      .sort({ month: -1 });
+      .sort({ date: -1 });
 
     // Calculate total contributions
     const totalContributions = payments.reduce((sum, payment) => sum + payment.amount, 0);
 
-    // Generate monthly breakdown
+    // Generate monthly breakdown - extract month from date
     const monthlyBreakdown = {};
+    
+    // Initialize all 12 months with 0
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    monthNames.forEach(month => {
+      monthlyBreakdown[month] = 0;
+    });
+    
+    // Sum payments by month
     payments.forEach(payment => {
-      monthlyBreakdown[payment.month] = payment.amount;
+      const paymentDate = new Date(payment.date);
+      const monthName = monthNames[paymentDate.getMonth()];
+      monthlyBreakdown[monthName] += payment.amount;
     });
 
     res.json({

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import BackButton from '../components/BackButton';
-import { X, Calendar, Users, Heart } from 'lucide-react';
+import { X, Calendar, Users, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import API from '../utils/api';
 
 const Gallery = () => {
@@ -10,11 +10,39 @@ const Gallery = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchPrograms();
   }, []);
+
+  // Keyboard navigation for carousel
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedProgram) return;
+      
+      if (e.key === 'ArrowLeft') {
+        if (selectedProgram?.images) {
+          setCurrentImageIndex((prev) => 
+            prev === 0 ? selectedProgram.images.length - 1 : prev - 1
+          );
+        }
+      } else if (e.key === 'ArrowRight') {
+        if (selectedProgram?.images) {
+          setCurrentImageIndex((prev) => 
+            prev === selectedProgram.images.length - 1 ? 0 : prev + 1
+          );
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedProgram(null);
+        setCurrentImageIndex(0);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProgram]);
 
   const fetchPrograms = async () => {
     try {
@@ -34,10 +62,32 @@ const Gallery = () => {
 
   const openProgramModal = (program) => {
     setSelectedProgram(program);
+    setCurrentImageIndex(0);
   };
 
   const closeModal = () => {
     setSelectedProgram(null);
+    setCurrentImageIndex(0);
+  };
+
+  const nextImage = () => {
+    if (selectedProgram?.images) {
+      setCurrentImageIndex((prev) => 
+        prev === selectedProgram.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (selectedProgram?.images) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? selectedProgram.images.length - 1 : prev - 1
+      );
+    }
+  };
+
+  const goToImage = (index) => {
+    setCurrentImageIndex(index);
   };
 
   if (loading) {
@@ -207,22 +257,77 @@ const Gallery = () => {
                   )}
                   
                   <h3 className="text-base font-semibold text-gray-900 mb-3">Photo Gallery</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedProgram.images?.map((img, index) => (
-                      <div key={index} className="relative aspect-square">
+                  
+                  {/* Carousel Container */}
+                  {selectedProgram.images && selectedProgram.images.length > 0 ? (
+                    <div className="relative bg-gray-100 rounded-lg overflow-hidden">
+                      {/* Main Image Display */}
+                      <div className="relative h-96">
                         <img
-                          src={img.src}
-                          alt={img.caption || `Photo ${index + 1}`}
-                          className="w-full h-full object-cover rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+                          src={selectedProgram.images[currentImageIndex]?.src}
+                          alt={selectedProgram.images[currentImageIndex]?.caption || `Photo ${currentImageIndex + 1}`}
+                          className="w-full h-full object-contain"
                         />
-                        {img.caption && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg">
-                            {img.caption}
+                        
+                        {/* Image Caption */}
+                        {selectedProgram.images[currentImageIndex]?.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-sm p-3">
+                            {selectedProgram.images[currentImageIndex].caption}
                           </div>
                         )}
+                        
+                        {/* Navigation Arrows */}
+                        {selectedProgram.images.length > 1 && (
+                          <>
+                            <button
+                              onClick={prevImage}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all"
+                              aria-label="Previous image"
+                            >
+                              <ChevronLeft className="h-6 w-6 text-gray-800" />
+                            </button>
+                            <button
+                              onClick={nextImage}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-all"
+                              aria-label="Next image"
+                            >
+                              <ChevronRight className="h-6 w-6 text-gray-800" />
+                            </button>
+                          </>
+                        )}
+                        
+                        {/* Image Counter */}
+                        <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                          {currentImageIndex + 1} / {selectedProgram.images.length}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                      
+                      {/* Thumbnail Navigation */}
+                      {selectedProgram.images.length > 1 && (
+                        <div className="flex gap-2 p-3 overflow-x-auto bg-gray-200">
+                          {selectedProgram.images.map((img, index) => (
+                            <button
+                              key={index}
+                              onClick={() => goToImage(index)}
+                              className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition-all ${
+                                index === currentImageIndex 
+                                  ? 'border-purple-600 shadow-lg' 
+                                  : 'border-transparent opacity-60 hover:opacity-100'
+                              }`}
+                            >
+                              <img
+                                src={img.src}
+                                alt={`Thumbnail ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">No images available</p>
+                  )}
                 </div>
               </div>
             </div>

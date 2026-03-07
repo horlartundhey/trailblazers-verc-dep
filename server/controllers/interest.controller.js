@@ -178,3 +178,42 @@ exports.deleteInterest = async (req, res) => {
     });
   }
 };
+
+// @desc    Mark all interests as viewed by admin
+// @route   PUT /api/interest/mark-viewed
+// @access  Private (Admin)
+exports.markInterestsAsViewed = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    // Find all interests not yet viewed by this admin
+    const interests = await Interest.find({
+      viewedBy: { $ne: adminId }
+    });
+
+    // Add admin to viewedBy array for each interest
+    await Promise.all(
+      interests.map(interest => {
+        if (!interest.viewedBy.includes(adminId)) {
+          interest.viewedBy.push(adminId);
+          return interest.save();
+        }
+      })
+    );
+
+    res.json({
+      success: true,
+      message: 'Interests marked as viewed',
+      data: {
+        count: interests.length
+      }
+    });
+  } catch (error) {
+    console.error('Mark interests as viewed error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark interests as viewed',
+      error: error.message
+    });
+  }
+};

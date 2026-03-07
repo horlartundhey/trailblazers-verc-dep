@@ -46,13 +46,23 @@ router.get(
   eventController.getAllAttendance
 );
 
+// @desc    Mark attendance records as viewed
+// @route   PUT /api/events/attendance/mark-viewed
+// @access  Private (Admin, Leader)
+router.put(
+  '/attendance/mark-viewed',
+  protect,
+  authorize('Admin', 'Leader'),
+  eventController.markAttendanceAsViewed
+);
+
 // @desc    Member registration for event
 // @route   POST /api/events/:id/register
-// @access  Private (Members)
+// @access  Private (Members, Leaders)
 router.post(
   '/:id/register',
   protect,
-  authorize('Member'),
+  authorize('Member', 'Leader'),
   eventController.registerMember
 );
 

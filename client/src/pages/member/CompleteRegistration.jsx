@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import API from '../../utils/api';
 import { getCurrentUser } from '../../redux/slices/authSlice';
 
@@ -81,7 +81,17 @@ const CompleteRegistration = () => {
       navigate('/member/dashboard');
     } catch (error) {
       console.error('Complete registration error:', error.response?.data || error);
-      setError(error.response?.data?.message || 'Failed to complete registration');
+      const errorMessage = error.response?.data?.message || 'Failed to complete registration';
+      
+      // If registration is already completed, redirect to dashboard
+      if (errorMessage === 'Registration already completed') {
+        setError('Your registration is already completed. Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/member/dashboard');
+        }, 2000);
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -90,6 +100,19 @@ const CompleteRegistration = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full space-y-8">
+        {/* Back Button */}
+        <div className="flex justify-start">
+          <Link
+            to="/member/dashboard"
+            className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Dashboard
+          </Link>
+        </div>
+        
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Complete Your Registration

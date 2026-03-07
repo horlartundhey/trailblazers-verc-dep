@@ -37,7 +37,11 @@ const eventAttendanceSchema = new mongoose.Schema({
     type: String,
     enum: ['Registered', 'Checked In', 'Cancelled'],
     default: 'Registered'
-  }
+  },
+  viewedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true
 });

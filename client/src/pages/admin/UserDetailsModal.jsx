@@ -161,8 +161,9 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return path;
     }
-    // Otherwise, prepend the API base URL
-    const baseURL = 'http://localhost:5000';
+    // Otherwise, prepend the API base URL (use same as API instance)
+    const baseURL = 'https://trailblazers-verc-server.vercel.app';
+    // const baseURL = 'http://localhost:5000'; // For local development
     return `${baseURL}${path.startsWith('/') ? path : '/' + path}`;
   };
   

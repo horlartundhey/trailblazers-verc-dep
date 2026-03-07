@@ -184,6 +184,7 @@ const [paymentStats, setPaymentStats] = useState({
 
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [eventRegistrationStatus, setEventRegistrationStatus] = useState({});
 
   
   
@@ -204,9 +205,16 @@ const [paymentStats, setPaymentStats] = useState({
       const totalsByMonth = {};
       const totalsByMonthAndCurrency = {};
       
+      // Month names for consistent formatting
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      
       (response.data.data || []).forEach(payment => {
         const currency = payment.currency || 'USD';
-        const month = payment.month;
+        const paymentDate = new Date(payment.date);
+        const month = monthNames[paymentDate.getMonth()];
         
         // Update totals by currency
         totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
@@ -262,9 +270,16 @@ const [paymentStats, setPaymentStats] = useState({
       const totalsByMonth = {};
       const totalsByMonthAndCurrency = {};
       
+      // Month names for consistent formatting
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      
       paymentsData.forEach(payment => {
         const currency = payment.currency || 'USD';
-        const month = payment.month;
+        const paymentDate = new Date(payment.date);
+        const month = monthNames[paymentDate.getMonth()];
         
         // Update totals by currency
         totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
@@ -523,6 +538,74 @@ const deleteEvent = async (eventId) => {
   }
 };
 
+// Event registration handler for leaders
+const handleEventRegister = async (eventId) => {
+  try {
+    setEventRegistrationStatus(prev => ({
+      ...prev,
+      [eventId]: { loading: true }
+    }));
+
+    const response = await API.post(`/api/events/${eventId}/register`);
+    
+    if (response.data.success) {
+      setEventRegistrationStatus(prev => ({
+        ...prev,
+        [eventId]: { 
+          success: true, 
+          message: response.data.data.message || 'Successfully registered!' 
+        }
+      }));
+      setSuccessMessage('Successfully registered for event!');
+      // Refresh events to update registration status
+      await fetchEvents();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setEventRegistrationStatus(prev => ({
+          ...prev,
+          [eventId]: null
+        }));
+      }, 3000);
+    }
+  } catch (err) {
+    console.error('Registration error:', err);
+    const errorMsg = err.response?.data?.message || 'Failed to register for event';
+    setEventRegistrationStatus(prev => ({
+      ...prev,
+      [eventId]: { 
+        error: true, 
+        message: errorMsg
+      }
+    }));
+    setErrorMessage(errorMsg);
+    
+    // Clear error message after 5 seconds
+    setTimeout(() => {
+      setEventRegistrationStatus(prev => ({
+        ...prev,
+        [eventId]: null
+      }));
+      setErrorMessage('');
+    }, 5000);
+  }
+};
+
+// Check if user is registered for an event
+const isUserRegistered = (event) => {
+  return event.registeredMembers?.some(
+    m => m.memberId === user?._id
+  );
+};
+
+// Get user's registration status for an event
+const getUserRegistrationStatus = (event) => {
+  const registration = event.registeredMembers?.find(
+    m => m.memberId === user?._id
+  );
+  return registration?.status || null;
+};
+
 
   // Helper functions for date handling
 const parseAndFormatMonth = (monthStr) => {
@@ -644,22 +727,22 @@ const formatCurrencyAmount = (amount, currency) => {
       )}{/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Leader Dashboard</h1>
-              <div className="ml-6 flex space-x-4">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Leader Dashboard</h1>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-indigo-100 text-indigo-800">
                   {user?.region}
                 </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800">
                   {user?.campus}
                 </span>
               </div>
             </div>
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 sm:space-x-6 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex items-center space-x-2 sm:space-x-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-sm font-medium text-gray-900">{user?.name}</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900">{user?.name}</span>
                   <span className="text-xs text-gray-500">{user?.position || 'Leader'}</span>
                 </div>
                 <div className="relative">
@@ -672,7 +755,7 @@ const formatCurrencyAmount = (amount, currency) => {
                         <img
                           src={getProfileImageUrl(user.profilePicture)}
                           alt="Profile"
-                          className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                          className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover border-2 border-indigo-500"
                           onError={(e) => {
                             console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
                             console.log('User object:', user);
@@ -683,28 +766,28 @@ const formatCurrencyAmount = (amount, currency) => {
                             if (fallback) fallback.style.display = 'flex';
                           }}
                         />
-                        <div className="h-10 w-10 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
-                          <span className="text-lg font-medium text-indigo-600">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
+                          <span className="text-base sm:text-lg font-medium text-indigo-600">
                             {user?.name?.charAt(0)?.toUpperCase()}
                           </span>
                         </div>
                       </>
                     ) : (
-                      <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
-                        <span className="text-lg font-medium text-indigo-600">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
+                        <span className="text-base sm:text-lg font-medium text-indigo-600">
                           {user?.name?.charAt(0)?.toUpperCase()}
                         </span>
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 border-2 border-white"></div>
+                    <div className="absolute bottom-0 right-0 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-green-400 border-2 border-white"></div>
                   </button>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Logout
@@ -716,9 +799,9 @@ const formatCurrencyAmount = (amount, currency) => {
         {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1">
+          <div className="flex flex-wrap gap-2 sm:gap-4 -mb-px">
             <button
-              className={`px-4 py-4 inline-flex items-center ${
+              className={`px-4 sm:px-6 py-3 sm:py-4 inline-flex items-center whitespace-nowrap text-sm sm:text-base font-medium ${
                 activeTab === 'dashboard'
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
@@ -731,7 +814,7 @@ const formatCurrencyAmount = (amount, currency) => {
               Dashboard
             </button>
             <button
-              className={`px-4 py-4 inline-flex items-center ${
+              className={`px-4 sm:px-6 py-3 sm:py-4 inline-flex items-center whitespace-nowrap text-sm sm:text-base font-medium ${
                 activeTab === 'members'
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
@@ -744,7 +827,7 @@ const formatCurrencyAmount = (amount, currency) => {
               Members
             </button>
             <button
-              className={`px-4 py-4 inline-flex items-center ${
+              className={`px-4 sm:px-6 py-3 sm:py-4 inline-flex items-center whitespace-nowrap text-sm sm:text-base font-medium ${
                 activeTab === 'events'
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
@@ -757,7 +840,7 @@ const formatCurrencyAmount = (amount, currency) => {
               Events
             </button>
             <button
-              className={`px-4 py-4 inline-flex items-center ${
+              className={`px-4 sm:px-6 py-3 sm:py-4 inline-flex items-center whitespace-nowrap text-sm sm:text-base font-medium ${
                 activeTab === 'payments'
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
@@ -769,8 +852,6 @@ const formatCurrencyAmount = (amount, currency) => {
               </svg>
               Partnership
             </button>
-
-            
           </div>
         </div>
       </nav>
@@ -1020,7 +1101,7 @@ const formatCurrencyAmount = (amount, currency) => {
                   )}
                   <div className="p-4">
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-medium text-lg">{event.name}</h4>
                         <div className="flex items-center mt-1 text-sm text-gray-500">
                           <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1044,9 +1125,9 @@ const formatCurrencyAmount = (amount, currency) => {
                         </div>
                         <p className="mt-2 text-gray-600">{event.description}</p>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="flex space-x-2 mb-2">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
+                      <div className="flex flex-col items-end ml-4">
+                        <div className="flex flex-col space-y-2 mb-2">
+                          <span className={`px-2 py-1 text-xs rounded-full text-center ${
                             event.registeredMembers?.filter(m => m.status === 'Confirmed').length >= event.capacity 
                               ? 'bg-red-100 text-red-800' 
                               : 'bg-green-100 text-green-800'
@@ -1054,8 +1135,43 @@ const formatCurrencyAmount = (amount, currency) => {
                             {event.registeredMembers?.filter(m => m.status === 'Confirmed').length || 0}/{event.capacity} attendees
                           </span>
                           {event.registeredMembers?.filter(m => m.status === 'Waitlisted').length > 0 && (
-                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full text-center">
                               {event.registeredMembers.filter(m => m.status === 'Waitlisted').length} waitlisted
+                            </span>
+                          )}
+                          
+                          {/* Registration Status or Button */}
+                          {isUserRegistered(event) ? (
+                            <span className={`px-3 py-1 text-xs font-medium rounded-full text-center ${
+                              getUserRegistrationStatus(event) === 'Confirmed' 
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {getUserRegistrationStatus(event) === 'Confirmed' ? '✓ Registered' : 'Waitlisted'}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleEventRegister(event._id)}
+                              disabled={eventRegistrationStatus[event._id]?.loading}
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                                eventRegistrationStatus[event._id]?.loading
+                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              }`}
+                            >
+                              {eventRegistrationStatus[event._id]?.loading ? 'Registering...' : 'Register'}
+                            </button>
+                          )}
+                          
+                          {/* Registration Status Messages */}
+                          {eventRegistrationStatus[event._id]?.success && (
+                            <span className="text-xs text-green-600 mt-1">
+                              {eventRegistrationStatus[event._id].message}
+                            </span>
+                          )}
+                          {eventRegistrationStatus[event._id]?.error && (
+                            <span className="text-xs text-red-600 mt-1">
+                              {eventRegistrationStatus[event._id].message}
                             </span>
                           )}
                         </div>

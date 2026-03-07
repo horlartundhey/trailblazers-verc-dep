@@ -25,6 +25,7 @@ router.use(protect);
 router.get('/', authorize('Admin', 'Leader'), interestController.getAllInterests);
 router.get('/:id', authorize('Admin', 'Leader'), interestController.getInterestById);
 router.patch('/:id', authorize('Admin', 'Leader'), interestController.updateInterestStatus);
+router.put('/mark-viewed', authorize('Admin', 'Leader'), interestController.markInterestsAsViewed);
 router.delete('/:id', authorize('Admin'), interestController.deleteInterest);
 
 module.exports = router;

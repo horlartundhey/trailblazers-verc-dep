@@ -110,7 +110,7 @@ UserSchema.pre('save', async function(next) {
     
     // Generate memberCode for Members if not already set
     if (this.role === 'Member' && !this.memberCode) {
-      const prefix = this.region.substring(0, 2).toUpperCase();
+      const prefix = 'TBN';
       const suffix = Math.floor(10000 + Math.random() * 90000).toString();
       this.memberCode = `${prefix}-${suffix}`;
     }
@@ -140,17 +140,24 @@ UserSchema.methods.getPaymentSummary = async function() {
   // Calculate total contributions
   const totalContributions = payments.reduce((sum, payment) => sum + payment.amount, 0);
   
-  // Generate monthly breakdown
+  // Generate monthly breakdown from payment dates
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
   const monthlyBreakdown = {};
   payments.forEach(payment => {
-    monthlyBreakdown[payment.month] = payment.amount;
+    const paymentDate = new Date(payment.date);
+    const monthName = monthNames[paymentDate.getMonth()];
+    monthlyBreakdown[monthName] = (monthlyBreakdown[monthName] || 0) + payment.amount;
   });
   
   return {
     totalContributions,
     paymentCount: payments.length,
     monthlyBreakdown,
-    recentPayments: payments.sort((a, b) => b.paymentDate - a.paymentDate).slice(0, 5)
+    recentPayments: payments.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
   };
 };
 

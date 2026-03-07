@@ -52,6 +52,10 @@ const interestSchema = new mongoose.Schema({
   reviewedAt: {
     type: Date
   },
+  viewedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   createdAt: {
     type: Date,
     default: Date.now

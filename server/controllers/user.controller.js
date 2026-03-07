@@ -230,7 +230,7 @@ exports.createUser = async (req, res) => {
       campus: role === 'Admin' ? undefined : campus,
       leaderId: role === 'Member' ? leaderId : undefined,
       position: role === 'Leader' ? req.body.position : undefined,
-      registrationStatus: role === 'Member' ? 'Pending' : 'Completed'
+      registrationStatus: 'Completed'
     });
 
     // Send welcome email with temporary password
@@ -357,7 +357,7 @@ exports.createMember = async (req, res) => {
   }
 
   try {
-    const { name, email, password, region, campus } = req.body;
+    const { name, email, password, region, campus, memberCode } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -366,6 +366,17 @@ exports.createMember = async (req, res) => {
         success: false,
         message: 'User with this email already exists'
       });
+    }
+
+    // Check if memberCode is provided and if it's already in use
+    if (memberCode) {
+      const codeExists = await User.findOne({ memberCode });
+      if (codeExists) {
+        return res.status(400).json({
+          success: false,
+          message: `Member code ${memberCode} is already in use`
+        });
+      }
     }
 
     // Set leader ID (if created by leader, use their ID, otherwise find a leader)
@@ -396,8 +407,8 @@ exports.createMember = async (req, res) => {
       leaderId = leader._id;
     }
 
-    // Create member
-    const member = await User.create({
+    // Create member with optional memberCode
+    const memberData = {
       name,
       email,
       password,
@@ -406,7 +417,14 @@ exports.createMember = async (req, res) => {
       campus,
       leaderId,
       registrationStatus: 'Completed'
-    });
+    };
+
+    // Add memberCode if provided by admin
+    if (memberCode) {
+      memberData.memberCode = memberCode;
+    }
+
+    const member = await User.create(memberData);
 
     res.status(201).json({
       success: true,
@@ -531,7 +549,7 @@ exports.getMyFinancialStatus = async (req, res) => {
     
     // Get user's payments
     const payments = await Payment.find({ userId: req.user.id })
-      .sort({ month: -1 });
+      .sort({ date: -1 });
     
     // Calculate total contributions
     const totalContributions = payments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -541,13 +559,20 @@ exports.getMyFinancialStatus = async (req, res) => {
     
     // Check if current month payment exists
     const currentDate = new Date();
-    const currentMonth = `${currentDate.getMonth() + 1}-${currentDate.getFullYear()}`;
-    const currentMonthPaid = payments.some(payment => payment.month === currentMonth);
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    const currentMonthPaid = payments.some(payment => {
+      const paymentDate = new Date(payment.date);
+      return paymentDate.getMonth() === currentMonth && 
+             paymentDate.getFullYear() === currentYear;
+    });
     
     // Get payment history by year
     const paymentsByYear = {};
     payments.forEach(payment => {
-      const year = payment.month.split('-')[1];
+      const paymentDate = new Date(payment.date);
+      const year = paymentDate.getFullYear().toString();
       if (!paymentsByYear[year]) {
         paymentsByYear[year] = 0;
       }
@@ -561,8 +586,8 @@ exports.getMyFinancialStatus = async (req, res) => {
         paymentStatus: currentMonthPaid ? 'Current' : 'Due',
         latestPayment: latestPayment ? {
           amount: latestPayment.amount,
-          month: latestPayment.month,
-          date: latestPayment.createdAt
+          date: latestPayment.date,
+          createdAt: latestPayment.createdAt
         } : null,
         paymentsByYear,
         paymentCount: payments.length

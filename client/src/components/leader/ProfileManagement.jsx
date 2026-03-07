@@ -67,18 +67,18 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
   };
 
   return (
-    <div className="text-center">
+    <div className="flex flex-col items-center space-y-3">
       <div className="relative inline-block">
         <img
           src={previewImage || '/default-profile.png'}
           alt="Profile"
-          className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+          className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white shadow-lg"
         />
         <button
           onClick={() => fileInputRef.current.click()}
           className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 shadow-lg"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
           </svg>
         </button>
@@ -94,7 +94,7 @@ const ProfilePictureUpload = ({ profile, onUpdate }) => {
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 text-sm sm:text-base"
         >
           {uploading ? 'Uploading...' : 'Save Changes'}
         </button>
@@ -210,13 +210,13 @@ const ProfileManagement = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-lg p-6 m-4 max-w-4xl w-full">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Profile Management</h2>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center overflow-y-auto z-50 p-4">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 my-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Profile Management</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 p-1"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -224,9 +224,11 @@ const ProfileManagement = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            <ProfilePictureUpload profile={profile} onUpdate={setProfile} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex justify-center py-4">
+              <ProfilePictureUpload profile={profile} onUpdate={setProfile} />
+            </div>
             
             <div className="space-y-4">
               <div>
@@ -265,18 +267,18 @@ const ProfileManagement = ({ isOpen, onClose }) => {
                 )}
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2 pt-4">
                 {isEditing ? (
                   <>
                     <button
                       onClick={() => setIsEditing(false)}
-                      className="mr-2 px-4 py-2 text-gray-600 hover:text-gray-800"
+                      className="px-3 sm:px-4 py-2 text-sm sm:text-base text-gray-600 hover:text-gray-800"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleUpdateProfile}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                      className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                     >
                       Save Changes
                     </button>
@@ -284,7 +286,7 @@ const ProfileManagement = ({ isOpen, onClose }) => {
                 ) : (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                   >
                     Edit Profile
                   </button>
@@ -293,28 +295,28 @@ const ProfileManagement = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-800">Account Information</h3>
-            <div className="space-y-4">
+          <div className="space-y-4 sm:space-y-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800">Account Information</h3>
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg">{profile.name}</p>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Name</label>
+                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg text-sm sm:text-base">{profile.name}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg">{profile.email}</p>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Email</label>
+                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg text-sm sm:text-base break-all">{profile.email}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Role</label>
-                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg">{profile.role}</p>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Role</label>
+                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg text-sm sm:text-base">{profile.role}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Region</label>
-                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg">{profile.region}</p>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Region</label>
+                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg text-sm sm:text-base">{profile.region}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Campus</label>
-                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg">{profile.campus}</p>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Campus</label>
+                <p className="mt-1 px-3 py-2 bg-gray-50 rounded-lg text-sm sm:text-base">{profile.campus}</p>
               </div>
             </div>
           </div>

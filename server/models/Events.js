@@ -122,7 +122,7 @@ const EventSchema = new mongoose.Schema({
   // Access control for registration
   registrationAccessControl: {
     type: String,
-    enum: ['Public', 'Members', 'Leaders'],
+    enum: ['Public', 'Members', 'Leaders', 'All'],
     default: 'Public'
   },
   createdBy: {

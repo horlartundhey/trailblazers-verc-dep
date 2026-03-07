@@ -28,7 +28,8 @@ exports.createEvent = async (req, res) => {
       registrationStartDate,
       registrationEndDate,
       location, 
-      capacity, 
+      capacity,
+      registrationAccessControl, 
       regions, 
       campuses 
     } = req.body;
@@ -128,6 +129,7 @@ exports.createEvent = async (req, res) => {
       registrationEndDate: regEndDate,
       location,
       capacity,
+      registrationAccessControl,
       regions: parsedRegions || [],
       campuses: parsedCampuses || [],
       createdBy: req.user._id,
@@ -377,7 +379,20 @@ exports.updateEvent = async (req, res) => {
       });
     }
 
-    const { name, description, date, location, capacity, regions, campuses } = req.body;
+    const { 
+      name, 
+      description, 
+      date, 
+      startTime,
+      endTime,
+      registrationStartDate,
+      registrationEndDate,
+      location, 
+      capacity, 
+      registrationAccessControl,
+      regions, 
+      campuses 
+    } = req.body;
     let imageUrl = event.image;
 
     // Parse regions and campuses if they're strings (from FormData)
@@ -440,8 +455,13 @@ exports.updateEvent = async (req, res) => {
         name,
         description,
         date,
+        startTime,
+        endTime,
+        registrationStartDate,
+        registrationEndDate,
         location,
         capacity,
+        registrationAccessControl,
         image: imageUrl,
         regions: parsedRegions || event.regions,
         campuses: parsedCampuses || event.campuses,
@@ -1110,6 +1130,26 @@ exports.registerMember = async (req, res) => {
       });
     }
 
+    // Check registration access control
+    const userRole = req.user.role;
+    const accessControl = event.registrationAccessControl;
+    
+    if (accessControl === 'Members' && userRole !== 'Member') {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is only open to Members'
+      });
+    }
+    
+    if (accessControl === 'Leaders' && userRole !== 'Leader') {
+      return res.status(403).json({
+        success: false,
+        message: 'This event is only open to Leaders'
+      });
+    }
+    
+    // 'Public' and 'All' allow anyone who is authenticated
+
     // Check if registration period is valid
     const now = new Date();
     const regStartDate = new Date(event.registrationStartDate);
@@ -1314,6 +1354,45 @@ exports.getAllAttendance = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch attendance records',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Mark all attendance records as viewed by admin
+// @route   PUT /api/events/attendance/mark-viewed
+// @access  Private (Admin, Leader)
+exports.markAttendanceAsViewed = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    // Find all attendance records not yet viewed by this admin
+    const attendanceRecords = await EventAttendance.find({
+      viewedBy: { $ne: adminId }
+    });
+
+    // Add admin to viewedBy array for each record
+    await Promise.all(
+      attendanceRecords.map(record => {
+        if (!record.viewedBy.includes(adminId)) {
+          record.viewedBy.push(adminId);
+          return record.save();
+        }
+      })
+    );
+
+    res.json({
+      success: true,
+      message: 'Attendance records marked as viewed',
+      data: {
+        count: attendanceRecords.length
+      }
+    });
+  } catch (error) {
+    console.error('Mark attendance as viewed error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark attendance as viewed',
       error: error.message
     });
   }

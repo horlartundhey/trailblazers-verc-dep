@@ -125,6 +125,7 @@ const ProfileForm = ({ profile, onUpdate }) => {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -140,6 +141,7 @@ const ProfileForm = ({ profile, onUpdate }) => {
     try {
       const response = await API.patch('/api/users/me', formData);
       onUpdate(response.data.data);
+      setIsEditing(false);
     } catch (error) {
       console.error('Update error:', error);
       if (error.response?.data?.errors) {
@@ -150,6 +152,20 @@ const ProfileForm = ({ profile, onUpdate }) => {
     }
   };
 
+  if (!isEditing) {
+    return (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setIsEditing(true)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200"
+        >
+          Edit Profile
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
@@ -159,7 +175,7 @@ const ProfileForm = ({ profile, onUpdate }) => {
           name="name"
           value={formData.name}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+          className="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 outline-none"
         />
         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
       </div>
@@ -171,16 +187,23 @@ const ProfileForm = ({ profile, onUpdate }) => {
           name="phone"
           value={formData.phone}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+          className="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 outline-none"
         />
         {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
       </div>
       
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setIsEditing(false)}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none transition duration-200"
+        >
+          Cancel
+        </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 disabled:opacity-60"
         >
           {loading ? 'Saving...' : 'Update Profile'}
         </button>
@@ -321,10 +344,21 @@ const MemberDashboard = () => {
         const totalsByCurrency = {};
         const totalsByMonth = {};
         const totalsByMonthAndCurrency = {};
+        let totalContributions = 0;
+
+        // Month names for consistent formatting
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
 
         (response.data.data || []).forEach(payment => {
-          const currency = payment.currency || 'USD';
-          const month = payment.month;
+          const currency = payment.currency || 'NGN';
+          const paymentDate = new Date(payment.date);
+          const month = monthNames[paymentDate.getMonth()];
+          
+          // Update total contributions
+          totalContributions += payment.amount;
           
           // Update totals by currency
           totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
@@ -341,6 +375,7 @@ const MemberDashboard = () => {
         });
 
         setPaymentStats({
+          totalContributions,
           totalsByMonth,
           totalsByMonthAndCurrency,
           totalsByCurrency
@@ -445,7 +480,7 @@ const MemberDashboard = () => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <h2 className="text-2xl font-bold text-white">Trailblazer</h2>
+              <h2 className="text-2xl font-bold text-white">Trailblazer Nation</h2>
             </div>
 
             {/* Desktop Navigation */}
@@ -759,7 +794,7 @@ const MemberDashboard = () => {
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-purple-800">Last Payment</h4>
                     <p className="mt-1 text-2xl font-bold text-purple-900">
-                      {payments.length > 0 ? parseAndFormatMonth(payments[0].month) : 'N/A'}
+                      {payments.length > 0 ? parseAndFormatMonth(payments[0].date) : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -808,7 +843,7 @@ const MemberDashboard = () => {
                         {payments.map(payment => (
                           <tr key={payment._id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {parseAndFormatMonth(payment.month)}
+                              {parseAndFormatMonth(payment.date)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
                               {payment.currency} {payment.amount.toLocaleString()}

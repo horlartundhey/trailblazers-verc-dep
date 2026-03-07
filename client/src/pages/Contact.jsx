@@ -8,6 +8,7 @@ import API from '../utils/api';
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: '',
+    phone: '',
     email: '',
     subject: '',
     message: ''
@@ -38,7 +39,7 @@ const Contact = () => {
       
       if (response.data.success) {
         setSuccess(true);
-        setFormData({ name: '', email: '', subject: '', message: '' });
+        setFormData({ name: '', phone: '', email: '', subject: '', message: '' });
         setTimeout(() => setSuccess(false), 5000);
       }
     } catch (err) {
@@ -141,20 +142,35 @@ const Contact = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address *
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number *
                       </label>
                       <input
-                        type="email"
-                        id="email"
-                        name="email"
+                        type="tel"
+                        id="phone"
+                        name="phone"
                         required
-                        value={formData.email}
+                        value={formData.phone}
                         onChange={handleChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="john@example.com"
+                        placeholder="+234 XXX XXX XXXX"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="john@example.com (optional)"
+                    />
                   </div>
 
                   <div>
