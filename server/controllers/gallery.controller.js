@@ -156,6 +156,102 @@ const getPrograms = async (req, res) => {
   }
 };
 
+// @desc    Get all programs for authenticated users (public + private)
+// @route   GET /api/gallery/member/programs
+// @access  Private (any authenticated user)
+const getMemberPrograms = async (req, res) => {
+  try {
+    const programs = await Gallery.aggregate([
+      {
+        $group: {
+          _id: '$programTitle',
+          programTitle: { $first: '$programTitle' },
+          programDate: { $first: '$programDate' },
+          description: { $first: '$description' },
+          testimony: { $first: '$testimony' },
+          attendees: { $first: '$attendees' },
+          healings: { $first: '$healings' },
+          messageShared: { $first: '$messageShared' },
+          category: { $first: '$category' },
+          collection: { $first: '$collection' },
+          isPublic: { $first: '$isPublic' },
+          thumbnailImage: { $first: '$src' },
+          images: {
+            $push: {
+              _id: '$_id',
+              src: '$src',
+              caption: '$caption',
+              category: '$category',
+            }
+          },
+          createdAt: { $first: '$createdAt' }
+        }
+      },
+      { $sort: { programDate: -1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    console.error('Get member programs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching programs: ' + error.message
+    });
+  }
+};
+
+// @desc    Get all programs with grouped images (admin - all including private)
+// @route   GET /api/gallery/admin/programs
+// @access  Private (Admin only)
+const getAdminPrograms = async (req, res) => {
+  try {
+    const programs = await Gallery.aggregate([
+      {
+        $group: {
+          _id: '$programTitle',
+          programTitle: { $first: '$programTitle' },
+          programDate: { $first: '$programDate' },
+          description: { $first: '$description' },
+          testimony: { $first: '$testimony' },
+          attendees: { $first: '$attendees' },
+          healings: { $first: '$healings' },
+          messageShared: { $first: '$messageShared' },
+          category: { $first: '$category' },
+          collection: { $first: '$collection' },
+          isPublic: { $first: '$isPublic' },
+          thumbnailImage: { $first: '$src' },
+          images: {
+            $push: {
+              _id: '$_id',
+              src: '$src',
+              caption: '$caption',
+              category: '$category',
+              isPublic: '$isPublic',
+            }
+          },
+          imageCount: { $sum: 1 },
+          createdAt: { $first: '$createdAt' }
+        }
+      },
+      { $sort: { programDate: -1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    console.error('Get admin programs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching programs: ' + error.message
+    });
+  }
+};
+
 // @desc    Get images by collection
 // @route   GET /api/gallery/collection/:collection
 // @access  Public
@@ -206,6 +302,8 @@ module.exports = {
   uploadImage,
   getImages,
   getPrograms,
+  getMemberPrograms,
+  getAdminPrograms,
   getImagesByCollection,
   deleteImage,
 };

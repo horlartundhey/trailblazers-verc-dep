@@ -659,6 +659,33 @@ exports.registerForEvent = async (req, res) => {
       m => m.memberId.toString() === req.user._id.toString()
     );
 
+    // Create EventAttendance record for Leaders
+    if (req.user.role === 'Leader' && updatedRegistration.status !== 'Cancelled') {
+      try {
+        // Fetch event name and date (not included in lean query above)
+        const eventDetails = await Event.findById(req.params.id).select('name date');
+        const existingAttendance = await EventAttendance.findOne({
+          event: req.params.id,
+          phone: req.user.phone || req.user._id.toString(),
+        });
+        if (!existingAttendance) {
+          await EventAttendance.create({
+            name: req.user.name,
+            phone: req.user.phone || 'N/A',
+            location: req.user.campus || req.user.region || 'N/A',
+            invitedBy: 'Self (Leader)',
+            event: req.params.id,
+            eventName: eventDetails?.name || 'Event',
+            eventDate: eventDetails?.date || new Date(),
+            status: 'Registered',
+          });
+        }
+      } catch (attendanceErr) {
+        // Non-blocking - log but don't fail the registration
+        console.error('Failed to create EventAttendance for leader:', attendanceErr.message);
+      }
+    }
+
     res.json({
       success: true,
       data: {

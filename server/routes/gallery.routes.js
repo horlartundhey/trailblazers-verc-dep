@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { uploadImage, getImages, getPrograms, getImagesByCollection, deleteImage } = require('../controllers/gallery.controller');
+const { uploadImage, getImages, getPrograms, getMemberPrograms, getAdminPrograms, getImagesByCollection, deleteImage } = require('../controllers/gallery.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const { upload } = require('../middleware/gallery.middleware');
 
@@ -8,6 +8,12 @@ const { upload } = require('../middleware/gallery.middleware');
 router.get('/', getImages);
 router.get('/programs', getPrograms);
 router.get('/collection/:collection', getImagesByCollection);
+
+// Authenticated user routes (all roles)
+router.get('/member/programs', protect, getMemberPrograms);
+
+// Admin-only routes
+router.get('/admin/programs', protect, authorize('Admin'), getAdminPrograms);
 
 // Protected routes (Admin/Leader only)
 router.post('/', protect, authorize('Admin', 'Leader'), upload.single('image'), uploadImage);

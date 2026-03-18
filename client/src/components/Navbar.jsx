@@ -45,7 +45,7 @@ const Navbar = () => {
               to="/contact" 
               className="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 hover:text-white transition-colors"
             >
-              Contact
+              Contact Us
             </Link>
             
             {isAuthenticated ? (
@@ -121,7 +121,7 @@ const Navbar = () => {
               className="block px-3 py-2 rounded-md text-base font-medium hover:bg-indigo-700 hover:text-white transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Contact
+              Contact Us
             </Link>
             
             {isAuthenticated ? (

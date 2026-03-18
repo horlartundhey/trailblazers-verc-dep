@@ -49,6 +49,17 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [eventTab, setEventTab] = useState('details');
   const [isEditingEvent, setIsEditingEvent] = useState(false);
 
+  // Gallery management state
+  const [galleries, setGalleries] = useState([]);
+  const [galleryPage, setGalleryPage] = useState(1);
+  const [selectedGallery, setSelectedGallery] = useState(null);
+  const [showGalleryForm, setShowGalleryForm] = useState(false);
+  const galleryItemsPerPage = 6;
+
+  // Assign-leader state
+  const [assigningMemberId, setAssigningMemberId] = useState(null);
+  const [assignLeaderLoading, setAssignLeaderLoading] = useState(false);
+
 
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -168,6 +179,19 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const fetchGalleries = useCallback(async () => {
+    try {
+      const response = await API.get('/api/gallery/admin/programs');
+      setGalleries(response.data.data || []);
+    } catch (err) {
+      console.error('Failed to load galleries:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGalleries();
+  }, [fetchGalleries]);
 
   // Mark interests as viewed when tab is clicked
   const markInterestsAsViewed = async () => {
@@ -462,6 +486,20 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
     setSelectedUserId(null);
     // Refresh user data after modal closes (in case payments were added)
     fetchDashboardData();
+  };
+
+  const handleAssignLeader = async (memberId, leaderId) => {
+    setAssignLeaderLoading(true);
+    try {
+      const res = await API.patch(`/api/users/${memberId}/assign-leader`, { leaderId });
+      setUsers(prev => prev.map(u => u._id === memberId ? res.data.data : u));
+      setAssigningMemberId(null);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Failed to assign leader');
+      setTimeout(() => setErrorMessage(''), 3000);
+    } finally {
+      setAssignLeaderLoading(false);
+    }
   };
   
   if (loading && (!users || users.length === 0)) {
@@ -875,6 +913,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Assigned Leader
+                      </th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -915,6 +956,36 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                               }`}>
                                 {user.registrationStatus}
                               </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                            {user.role === 'Member' ? (
+                              assigningMemberId === user._id ? (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    autoFocus
+                                    disabled={assignLeaderLoading}
+                                    defaultValue={user.leaderId?._id || user.leaderId || ''}
+                                    onChange={e => handleAssignLeader(user._id, e.target.value)}
+                                    onBlur={() => setAssigningMemberId(null)}
+                                    className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  >
+                                    <option value="">-- Unassign --</option>
+                                    {users.filter(u => u.role === 'Leader').map(leader => (
+                                      <option key={leader._id} value={leader._id}>{leader.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setAssigningMemberId(user._id)}
+                                  className="text-xs text-indigo-600 hover:text-indigo-900 underline"
+                                >
+                                  {user.leaderId?.name || user.leaderId || 'Unassigned'}
+                                </button>
+                              )
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -970,12 +1041,185 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         {/* Gallery Tab */}
         {activeTab === 'gallery' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Gallery Management</h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">Upload and manage gallery images</p>
+            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Gallery Management</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  {selectedGallery ? `Viewing: ${selectedGallery.programTitle}` : 'Upload and manage gallery albums'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {selectedGallery && (
+                  <button
+                    onClick={() => setSelectedGallery(null)}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    ← Back to Albums
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowGalleryForm(v => !v); setSelectedGallery(null); }}
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {showGalleryForm ? 'Cancel Upload' : '+ Upload Photos'}
+                </button>
+              </div>
             </div>
+
             <div className="px-4 py-5 sm:p-6">
-              <GalleryImageForm />
+              {/* Upload form toggle */}
+              {showGalleryForm && (
+                <div className="mb-8 border border-gray-200 rounded-lg p-4">
+                  <GalleryImageForm onSuccess={() => { setShowGalleryForm(false); fetchGalleries(); }} />
+                </div>
+              )}
+
+              {/* Gallery detail view */}
+              {selectedGallery && !showGalleryForm && (
+                <div>
+                  <div className="mb-4 flex flex-wrap gap-4 text-sm text-gray-600">
+                    {selectedGallery.programDate && (
+                      <span><strong>Date:</strong> {new Date(selectedGallery.programDate).toLocaleDateString()}</span>
+                    )}
+                    {selectedGallery.attendees > 0 && (
+                      <span><strong>Attendees:</strong> {selectedGallery.attendees}</span>
+                    )}
+                    {selectedGallery.healings > 0 && (
+                      <span><strong>Healings:</strong> {selectedGallery.healings}</span>
+                    )}
+                    <span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${selectedGallery.isPublic ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                        {selectedGallery.isPublic ? 'Public' : 'Private'}
+                      </span>
+                    </span>
+                  </div>
+                  {selectedGallery.description && (
+                    <p className="mb-4 text-sm text-gray-600">{selectedGallery.description}</p>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {selectedGallery.images.map((img) => (
+                      <div key={img._id} className="group relative rounded-lg overflow-hidden aspect-square bg-gray-100">
+                        <img
+                          src={img.src}
+                          alt={img.caption || selectedGallery.programTitle}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-end">
+                          <p className="text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity truncate w-full">{img.caption}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm('Delete this image?')) return;
+                            try {
+                              await API.delete(`/api/gallery/${img._id}`);
+                              setSelectedGallery(prev => ({
+                                ...prev,
+                                images: prev.images.filter(i => i._id !== img._id),
+                                imageCount: (prev.imageCount || prev.images.length) - 1
+                              }));
+                              fetchGalleries();
+                            } catch (err) {
+                              alert('Failed to delete image');
+                            }
+                          }}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                          title="Delete image"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Gallery album grid */}
+              {!selectedGallery && !showGalleryForm && (
+                <>
+                  {galleries.length === 0 ? (
+                    <div className="text-center py-12">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No gallery albums yet</h3>
+                      <p className="mt-1 text-sm text-gray-500">Click "Upload Photos" to add your first album.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {galleries
+                          .slice((galleryPage - 1) * galleryItemsPerPage, galleryPage * galleryItemsPerPage)
+                          .map((gallery) => (
+                            <div
+                              key={gallery._id}
+                              onClick={() => setSelectedGallery(gallery)}
+                              className="group cursor-pointer rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
+                            >
+                              {/* Cover image */}
+                              <div className="relative aspect-video bg-gray-100 overflow-hidden">
+                                {gallery.thumbnailImage ? (
+                                  <img
+                                    src={gallery.thumbnailImage}
+                                    alt={gallery.programTitle}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                    <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium ${gallery.isPublic ? 'bg-green-500 text-white' : 'bg-gray-700 text-white'}`}>
+                                  {gallery.isPublic ? 'Public' : 'Private'}
+                                </span>
+                              </div>
+                              {/* Album info - single row */}
+                              <div className="px-3 py-2 flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{gallery.programTitle}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {gallery.programDate ? new Date(gallery.programDate).toLocaleDateString() : '—'}
+                                    {' · '}
+                                    {gallery.imageCount || gallery.images?.length || 0} photo{(gallery.imageCount || gallery.images?.length || 0) !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <svg className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+
+                      {/* Pagination */}
+                      {galleries.length > galleryItemsPerPage && (
+                        <div className="mt-6 flex items-center justify-between">
+                          <p className="text-sm text-gray-700">
+                            Showing {(galleryPage - 1) * galleryItemsPerPage + 1}–{Math.min(galleryPage * galleryItemsPerPage, galleries.length)} of {galleries.length} albums
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setGalleryPage(p => Math.max(1, p - 1))}
+                              disabled={galleryPage === 1}
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                            >
+                              Previous
+                            </button>
+                            <button
+                              onClick={() => setGalleryPage(p => Math.min(Math.ceil(galleries.length / galleryItemsPerPage), p + 1))}
+                              disabled={galleryPage >= Math.ceil(galleries.length / galleryItemsPerPage)}
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

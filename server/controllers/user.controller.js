@@ -289,7 +289,7 @@ exports.createUser = async (req, res) => {
 // @access  Private (Admin only)
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find().select('-password').populate('leaderId', 'name email');
     
     res.json({
       success: true,
@@ -484,7 +484,7 @@ exports.filterUsers = async (req, res) => {
       if (registrationStatus) queryObj.registrationStatus = registrationStatus;
     }
     
-    const users = await User.find(queryObj).select('-password');
+    const users = await User.find(queryObj).select('-password').populate('leaderId', 'name email');
     
     res.json({
       success: true,
@@ -1063,5 +1063,52 @@ exports.changeUserRole = async (req, res) => {
       success: false,
       message: 'Failed to change user role'
     });
+  }
+};
+
+// @desc    Assign a leader to a member (Admin only)
+exports.assignLeader = async (req, res) => {
+  try {
+    const { leaderId } = req.body;
+
+    const member = await User.findById(req.params.id);
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (member.role !== 'Member') {
+      return res.status(400).json({ success: false, message: 'User is not a Member' });
+    }
+
+    if (leaderId) {
+      const leader = await User.findById(leaderId);
+      if (!leader || leader.role !== 'Leader') {
+        return res.status(400).json({ success: false, message: 'Invalid leader ID' });
+      }
+    }
+
+    member.leaderId = (leaderId && leaderId.trim()) ? leaderId : null;
+    await member.save();
+
+    const populated = await User.findById(member._id)
+      .select('-password')
+      .populate('leaderId', 'name email');
+
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    console.error('Assign leader error:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign leader' });
+  }
+};
+
+// @desc    Get members assigned to the calling leader
+exports.getAssignedMembers = async (req, res) => {
+  try {
+    const members = await User.find({ leaderId: req.user._id, role: 'Member' })
+      .select('-password')
+      .sort({ name: 1 });
+    res.json({ success: true, data: members });
+  } catch (error) {
+    console.error('Get assigned members error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch assigned members' });
   }
 };

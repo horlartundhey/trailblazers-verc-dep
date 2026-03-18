@@ -190,8 +190,8 @@ const Gallery = () => {
 
           {/* Program Detail Modal */}
           {selectedProgram && (
-            <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-2 sm:p-4">
+              <div className="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] flex flex-col">
                 <div className="bg-white border-b px-4 py-3 flex justify-between items-center rounded-t-lg flex-shrink-0">
                   <h2 className="text-xl font-bold text-purple-900">
                     {selectedProgram.programTitle}
@@ -262,7 +262,7 @@ const Gallery = () => {
                   {selectedProgram.images && selectedProgram.images.length > 0 ? (
                     <div className="relative bg-gray-100 rounded-lg overflow-hidden">
                       {/* Main Image Display */}
-                      <div className="relative h-96">
+                      <div className="relative" style={{height: 'clamp(320px, 60vh, 680px)'}}>
                         <img
                           src={selectedProgram.images[currentImageIndex]?.src}
                           alt={selectedProgram.images[currentImageIndex]?.caption || `Photo ${currentImageIndex + 1}`}

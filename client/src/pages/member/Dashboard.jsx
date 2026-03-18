@@ -290,6 +290,13 @@ const MemberDashboard = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Gallery state
+  const [galleries, setGalleries] = useState([]);
+  const [galleryPage, setGalleryPage] = useState(1);
+  const [selectedGallery, setSelectedGallery] = useState(null);
+  const [galleryImageIndex, setGalleryImageIndex] = useState(0);
+  const galleryItemsPerPage = 6;
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector(state => state.auth);
@@ -388,6 +395,11 @@ const MemberDashboard = () => {
     if (user) {
       Promise.all([fetchProfile(), fetchEvents(), fetchPayments()])
         .finally(() => setLoading(false));
+
+      // Fetch galleries (all including private - authenticated endpoint)
+      API.get('/api/gallery/member/programs')
+        .then(res => setGalleries(res.data.data || []))
+        .catch(err => console.error('Failed to fetch galleries:', err));
     }
   }, [user, navigate, dispatch]);
 
@@ -509,6 +521,14 @@ const MemberDashboard = () => {
               >
                 Partnership
               </button>
+              <button
+                className={`text-sm font-medium ${
+                  activeTab === 'gallery' ? 'text-white border-b-2 border-white' : 'text-indigo-100 hover:text-white'
+                } py-4 transition duration-200`}
+                onClick={() => setActiveTab('gallery')}
+              >
+                Gallery
+              </button>
             </div>
 
             {/* User Dropdown */}
@@ -587,6 +607,14 @@ const MemberDashboard = () => {
                 onClick={() => { setActiveTab('payments'); setIsMobileMenuOpen(false); }}
               >
                 Partnership
+              </button>
+              <button
+                className={`block w-full text-left px-3 py-2 text-sm font-medium ${
+                  activeTab === 'gallery' ? 'text-white bg-indigo-800' : 'text-indigo-100 hover:text-white hover:bg-indigo-600'
+                } rounded-lg`}
+                onClick={() => { setActiveTab('gallery'); setIsMobileMenuOpen(false); }}
+              >
+                Gallery
               </button>
               <button
                 className="block w-full text-left px-3 py-2 text-sm font-medium text-red-200 hover:text-white hover:bg-red-600 rounded-lg"
@@ -876,6 +904,156 @@ const MemberDashboard = () => {
                 )}
               </div>
             )}
+
+          {/* Gallery Tab */}
+          {activeTab === 'gallery' && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-1">Gallery</h3>
+              <p className="text-sm text-gray-500 mb-6">Browse photos from our programs and events</p>
+
+              {/* Gallery detail view */}
+              {selectedGallery ? (
+                <div>
+                  <button
+                    onClick={() => { setSelectedGallery(null); setGalleryImageIndex(0); }}
+                    className="mb-4 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    ← Back to Albums
+                  </button>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{selectedGallery.programTitle}</h4>
+                  <div className="mb-4 flex flex-wrap gap-4 text-sm text-gray-500">
+                    {selectedGallery.programDate && (
+                      <span>{new Date(selectedGallery.programDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    )}
+                    {!selectedGallery.isPublic && (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Private</span>
+                    )}
+                  </div>
+
+                  {/* Carousel */}
+                  {selectedGallery.images?.length > 0 && (
+                    <div className="relative bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="relative" style={{height: 'clamp(280px, 55vh, 600px)'}}>
+                        <img
+                          src={selectedGallery.images[galleryImageIndex]?.src}
+                          alt={selectedGallery.images[galleryImageIndex]?.caption || `Photo ${galleryImageIndex + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                        {selectedGallery.images[galleryImageIndex]?.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-sm p-3">
+                            {selectedGallery.images[galleryImageIndex].caption}
+                          </div>
+                        )}
+                        {selectedGallery.images.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => setGalleryImageIndex(i => i === 0 ? selectedGallery.images.length - 1 : i - 1)}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg"
+                            >
+                              &#8249;
+                            </button>
+                            <button
+                              onClick={() => setGalleryImageIndex(i => i === selectedGallery.images.length - 1 ? 0 : i + 1)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg"
+                            >
+                              &#8250;
+                            </button>
+                          </>
+                        )}
+                        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                          {galleryImageIndex + 1} / {selectedGallery.images.length}
+                        </div>
+                      </div>
+                      {selectedGallery.images.length > 1 && (
+                        <div className="flex gap-2 p-3 overflow-x-auto bg-gray-200">
+                          {selectedGallery.images.map((img, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setGalleryImageIndex(idx)}
+                              className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all ${idx === galleryImageIndex ? 'border-indigo-600 shadow' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                            >
+                              <img src={img.src} alt={`thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {galleries.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No gallery albums available yet.</div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {galleries
+                          .slice((galleryPage - 1) * galleryItemsPerPage, galleryPage * galleryItemsPerPage)
+                          .map((gallery) => (
+                            <div
+                              key={gallery._id}
+                              onClick={() => { setSelectedGallery(gallery); setGalleryImageIndex(0); }}
+                              className="group cursor-pointer rounded-xl overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
+                            >
+                              <div className="relative aspect-video bg-gray-100 overflow-hidden">
+                                {gallery.thumbnailImage ? (
+                                  <img
+                                    src={gallery.thumbnailImage}
+                                    alt={gallery.programTitle}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                    <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                )}
+                                {!gallery.isPublic && (
+                                  <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-white">Private</span>
+                                )}
+                              </div>
+                              <div className="px-3 py-2 flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{gallery.programTitle}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {gallery.programDate ? new Date(gallery.programDate).toLocaleDateString() : '—'}
+                                    {' · '}{gallery.images?.length || 0} photo{gallery.images?.length !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <svg className="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                      {galleries.length > galleryItemsPerPage && (
+                        <div className="mt-6 flex items-center justify-between">
+                          <p className="text-sm text-gray-500">
+                            Page {galleryPage} of {Math.ceil(galleries.length / galleryItemsPerPage)}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setGalleryPage(p => Math.max(1, p - 1))}
+                              disabled={galleryPage === 1}
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                            >Previous</button>
+                            <button
+                              onClick={() => setGalleryPage(p => Math.min(Math.ceil(galleries.length / galleryItemsPerPage), p + 1))}
+                              disabled={galleryPage >= Math.ceil(galleries.length / galleryItemsPerPage)}
+                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                            >Next</button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           </main>
         </div>
       </div>

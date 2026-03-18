@@ -160,6 +160,16 @@ router.get(
   userController.filterUsers
 );
 
+// @desc    Get members assigned to the logged-in leader
+// @route   GET /api/users/assigned-members
+// @access  Private (Leader)
+router.get(
+  '/assigned-members',
+  protect,
+  authorize('Leader'),
+  userController.getAssignedMembers
+);
+
 // @desc    Get user by ID
 // @route   GET /api/users/:id
 // @access  Private (Admin & Leader for their members)
@@ -242,6 +252,16 @@ router.delete(
     authorize('Leader')
   ],
   userController.deleteTraining
+);
+
+// @desc    Assign a leader to a member (Admin only)
+// @route   PATCH /api/users/:id/assign-leader
+// @access  Private (Admin only)
+router.patch(
+  '/:id/assign-leader',
+  protect,
+  authorize('Admin'),
+  userController.assignLeader
 );
 
 module.exports = router;
