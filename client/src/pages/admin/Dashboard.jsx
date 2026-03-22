@@ -60,6 +60,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [assigningMemberId, setAssigningMemberId] = useState(null);
   const [assignLeaderLoading, setAssignLeaderLoading] = useState(false);
 
+  // Filter panel toggle
+  const [showFilter, setShowFilter] = useState(false);
+
 
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -835,15 +838,102 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
+            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
               <h3 className="text-lg font-medium leading-6 text-gray-900">User Management</h3>
-              <button
-                onClick={() => setActiveTab('createUser')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
-              >
-                Add User
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowFilter(f => !f)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm border rounded transition ${
+                    showFilter ? 'bg-indigo-50 border-indigo-400 text-indigo-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+                  </svg>
+                  Filter
+                  {(filterParams.role || filterParams.region || filterParams.campus || filterParams.registrationStatus) && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 text-xs rounded-full bg-indigo-600 text-white">•</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('createUser')}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition text-sm"
+                >
+                  Add User
+                </button>
+              </div>
             </div>
+
+            {/* Collapsible filter panel */}
+            {showFilter && (
+              <div className="px-4 py-4 bg-indigo-50 border-b border-indigo-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
+                    <select
+                      name="role"
+                      value={filterParams.role}
+                      onChange={handleFilterChange}
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">All Roles</option>
+                      <option value="Admin">Admin</option>
+                      <option value="Leader">Leader</option>
+                      <option value="Member">Member</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Region</label>
+                    <input
+                      type="text"
+                      name="region"
+                      value={filterParams.region}
+                      onChange={handleFilterChange}
+                      placeholder="e.g. Lagos"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Campus</label>
+                    <input
+                      type="text"
+                      name="campus"
+                      value={filterParams.campus}
+                      onChange={handleFilterChange}
+                      placeholder="e.g. Main Campus"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                    <select
+                      name="registrationStatus"
+                      value={filterParams.registrationStatus}
+                      onChange={handleFilterChange}
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Pending">Pending</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={applyFilters}
+                    className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition"
+                  >
+                    Apply Filter
+                  </button>
+                  <button
+                    onClick={() => { resetFilters(); setShowFilter(false); }}
+                    className="px-4 py-1.5 bg-white text-gray-700 text-sm border border-gray-300 rounded hover:bg-gray-50 transition"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
             
             {/* User Statistics Section */}
             <div className="p-4 border-b bg-gray-50">
