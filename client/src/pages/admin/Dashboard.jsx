@@ -1349,6 +1349,22 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                                 >
                                   Edit
                                 </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`Delete the entire "${gallery.programTitle}" album? This cannot be undone.`)) return;
+                                    try {
+                                      await API.delete(`/gallery/program/${gallery.collection}`);
+                                      fetchGalleries();
+                                    } catch (err) {
+                                      alert(err.response?.data?.message || 'Failed to delete album');
+                                    }
+                                  }}
+                                  className="flex-shrink-0 text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition"
+                                  title="Delete album"
+                                >
+                                  Delete
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -1388,47 +1404,117 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
           {/* Gallery Edit Modal */}
           {editingGallery && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between px-6 py-4 border-b">
                   <h3 className="text-base font-semibold text-gray-900">Edit Album</h3>
                   <button onClick={() => setEditingGallery(null)} className="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
-                <form onSubmit={handleGalleryEditSubmit} className="px-5 py-4 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Program Title</label>
-                    <input type="text" required value={galleryEditForm.programTitle || ''} onChange={e => setGalleryEditForm(f => ({...f, programTitle: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Program Date</label>
-                    <input type="date" required value={galleryEditForm.programDate || ''} onChange={e => setGalleryEditForm(f => ({...f, programDate: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea rows="3" value={galleryEditForm.description || ''} onChange={e => setGalleryEditForm(f => ({...f, description: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Testimony</label>
-                    <textarea rows="3" value={galleryEditForm.testimony || ''} onChange={e => setGalleryEditForm(f => ({...f, testimony: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
-                      <input type="number" min="0" value={galleryEditForm.attendees || 0} onChange={e => setGalleryEditForm(f => ({...f, attendees: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                <form onSubmit={handleGalleryEditSubmit} className="px-6 py-5">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {/* Program Title */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Program Title <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={galleryEditForm.programTitle || ''}
+                        onChange={e => setGalleryEditForm(f => ({...f, programTitle: e.target.value}))}
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
                     </div>
+
+                    {/* Program Date */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Healings</label>
-                      <input type="number" min="0" value={galleryEditForm.healings || 0} onChange={e => setGalleryEditForm(f => ({...f, healings: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                      <label className="block text-sm font-medium text-gray-700">
+                        Program Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={galleryEditForm.programDate || ''}
+                        onChange={e => setGalleryEditForm(f => ({...f, programDate: e.target.value}))}
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Message Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Message Title</label>
+                      <input
+                        type="text"
+                        value={galleryEditForm.messageShared || ''}
+                        onChange={e => setGalleryEditForm(f => ({...f, messageShared: e.target.value}))}
+                        placeholder="e.g., Faith in Action"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Program Description</label>
+                      <textarea
+                        rows="3"
+                        value={galleryEditForm.description || ''}
+                        onChange={e => setGalleryEditForm(f => ({...f, description: e.target.value}))}
+                        placeholder="Brief description of the program"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Testimony */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Testimony</label>
+                      <textarea
+                        rows="3"
+                        value={galleryEditForm.testimony || ''}
+                        onChange={e => setGalleryEditForm(f => ({...f, testimony: e.target.value}))}
+                        placeholder="Testimonies from the program"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Attendees */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Number of Attendees</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={galleryEditForm.attendees || 0}
+                        onChange={e => setGalleryEditForm(f => ({...f, attendees: e.target.value}))}
+                        placeholder="e.g., 250"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Healings */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Number of Healings</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={galleryEditForm.healings || 0}
+                        onChange={e => setGalleryEditForm(f => ({...f, healings: e.target.value}))}
+                        placeholder="e.g., 12"
+                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+
+                    {/* Visibility */}
+                    <div className="sm:col-span-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="editIsPublic"
+                        checked={galleryEditForm.isPublic !== false}
+                        onChange={e => setGalleryEditForm(f => ({...f, isPublic: e.target.checked}))}
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
+                      <label htmlFor="editIsPublic" className="text-sm font-medium text-gray-700">Make this album publicly visible</label>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Message Title</label>
-                    <input type="text" value={galleryEditForm.messageShared || ''} onChange={e => setGalleryEditForm(f => ({...f, messageShared: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="editIsPublic" checked={galleryEditForm.isPublic !== false} onChange={e => setGalleryEditForm(f => ({...f, isPublic: e.target.checked}))} className="h-4 w-4 text-indigo-600 border-gray-300 rounded" />
-                    <label htmlFor="editIsPublic" className="text-sm text-gray-700">Publicly visible</label>
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2">
+
+                  <div className="flex justify-end gap-3 pt-5 mt-2 border-t">
                     <button type="button" onClick={() => setEditingGallery(null)} className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
                     <button type="submit" disabled={galleryEditLoading} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-60">
                       {galleryEditLoading ? 'Saving...' : 'Save Changes'}
@@ -2016,14 +2102,28 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
                         Attendance List - {selectedEventAttendance}
                       </h3>
-                      <button
-                        onClick={() => setAttendanceModalOpen(false)}
-                        className="text-gray-400 hover:text-gray-500"
-                      >
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {eventAttendanceList.length > 0 && (
+                          <button
+                            onClick={() => downloadCSV(
+                              `attendance-${selectedEventAttendance?.replace(/\s+/g, '-').toLowerCase() || 'event'}.csv`,
+                              ['Name', 'Phone', 'Location', 'Invited By', 'Status', 'Registered'],
+                              eventAttendanceList.map(r => [r.name, r.phone || '', r.location || '', r.invitedBy || 'N/A', r.status || '', new Date(r.createdAt).toLocaleDateString()])
+                            )}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
+                          >
+                            ↓ CSV
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setAttendanceModalOpen(false)}
+                          className="text-gray-400 hover:text-gray-500"
+                        >
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="mt-4">

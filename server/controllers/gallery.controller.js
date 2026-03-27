@@ -379,6 +379,39 @@ const deleteImage = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Delete all images in an album (by collection)
+// @route   DELETE /api/gallery/program/:collection
+// @access  Private (Admin only)
+const deleteAlbum = asyncHandler(async (req, res) => {
+  const { collection } = req.params;
+
+  const images = await Gallery.find({ collection });
+
+  if (!images || images.length === 0) {
+    res.status(404);
+    throw new Error('Album not found');
+  }
+
+  // Delete each image from Cloudinary (best-effort)
+  for (const image of images) {
+    try {
+      if (image.src && image.src.includes('cloudinary')) {
+        const publicId = image.src.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+    } catch (err) {
+      console.error('Cloudinary delete error for', image.src, err.message);
+    }
+  }
+
+  await Gallery.deleteMany({ collection });
+
+  res.status(200).json({
+    success: true,
+    message: `Deleted ${images.length} images from album`,
+  });
+});
+
 module.exports = {
   uploadImage,
   getImages,
@@ -387,6 +420,7 @@ module.exports = {
   getAdminPrograms,
   getImagesByCollection,
   deleteImage,
+  deleteAlbum,
   updateProgram,
   uploadVideo,
 };
