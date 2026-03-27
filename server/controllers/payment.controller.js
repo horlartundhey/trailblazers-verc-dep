@@ -78,6 +78,14 @@ exports.recordPayment = async (req, res) => {
       recordedBy: req.user.id
     };
 
+    if (req.body.tags) {
+      try {
+        paymentData.tags = JSON.parse(req.body.tags);
+      } catch (e) {
+        paymentData.tags = [];
+      }
+    }
+
     // Add proof of payment if file was uploaded
     if (req.file) {
       try {

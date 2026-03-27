@@ -134,6 +134,7 @@ const getPrograms = async (req, res) => {
               src: '$src',
               caption: '$caption',
               category: '$category',
+              videoUrl: '$videoUrl',
             }
           },
           createdAt: { $first: '$createdAt' }
@@ -182,6 +183,7 @@ const getMemberPrograms = async (req, res) => {
               src: '$src',
               caption: '$caption',
               category: '$category',
+              videoUrl: '$videoUrl',
             }
           },
           createdAt: { $first: '$createdAt' }
@@ -230,6 +232,7 @@ const getAdminPrograms = async (req, res) => {
               caption: '$caption',
               category: '$category',
               isPublic: '$isPublic',
+              videoUrl: '$videoUrl',
             }
           },
           imageCount: { $sum: 1 },
@@ -265,6 +268,84 @@ const getImagesByCollection = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: images,
+  });
+});
+
+// @desc    Update album-level fields for all images in a collection
+// @route   PATCH /api/gallery/program/:collection
+// @access  Private (Admin only)
+const updateProgram = asyncHandler(async (req, res) => {
+  const { collection } = req.params;
+  const { programTitle, programDate, description, testimony, attendees, healings, messageShared, isPublic } = req.body;
+
+  const update = {};
+  if (programTitle !== undefined) update.programTitle = programTitle;
+  if (programDate !== undefined) update.programDate = programDate;
+  if (description !== undefined) update.description = description;
+  if (testimony !== undefined) update.testimony = testimony;
+  if (attendees !== undefined) update.attendees = Number(attendees);
+  if (healings !== undefined) update.healings = Number(healings);
+  if (messageShared !== undefined) update.messageShared = messageShared;
+  if (isPublic !== undefined) update.isPublic = isPublic;
+
+  if (Object.keys(update).length === 0) {
+    res.status(400);
+    throw new Error('No fields to update');
+  }
+
+  const result = await Gallery.updateMany({ collection }, { $set: update });
+
+  res.status(200).json({
+    success: true,
+    message: `Updated ${result.modifiedCount} images`,
+  });
+});
+
+// @desc    Add a YouTube video link to a gallery album
+// @route   POST /api/gallery/video
+// @access  Private (Admin, Leader)
+const uploadVideo = asyncHandler(async (req, res) => {
+  const { category, caption, collection, programTitle, programDate, description, testimony, attendees, healings, messageShared, isPublic, videoUrl } = req.body;
+
+  if (!videoUrl || !category || !caption || !collection || !programTitle || !programDate) {
+    res.status(400);
+    throw new Error('Please provide videoUrl, category, caption, collection, program title, and program date');
+  }
+
+  const youtubeIdMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+  if (!youtubeIdMatch) {
+    res.status(400);
+    throw new Error('Invalid YouTube URL');
+  }
+  const videoId = youtubeIdMatch[1];
+  const thumbnailSrc = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+  const validCategories = ['worship', 'baptism', 'community', 'youth', 'missions'];
+  if (!validCategories.includes(category)) {
+    res.status(400);
+    throw new Error('Invalid category');
+  }
+
+  const galleryItem = await Gallery.create({
+    src: thumbnailSrc,
+    videoUrl,
+    category,
+    caption,
+    collection,
+    programTitle,
+    programDate,
+    description: description || '',
+    testimony: testimony || '',
+    attendees: attendees || 0,
+    healings: healings || 0,
+    messageShared: messageShared || '',
+    isPublic: isPublic !== undefined ? isPublic : true,
+    createdBy: req.user._id,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: galleryItem,
   });
 });
 
@@ -306,4 +387,6 @@ module.exports = {
   getAdminPrograms,
   getImagesByCollection,
   deleteImage,
+  updateProgram,
+  uploadVideo,
 };

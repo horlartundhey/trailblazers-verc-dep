@@ -48,6 +48,10 @@ const PaymentSchema = new mongoose.Schema({
   notes: {
     type: String
   },
+  tags: [{
+    type: String,
+    trim: true
+  }],
   recordedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

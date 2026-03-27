@@ -261,16 +261,26 @@ const Gallery = () => {
                   {/* Carousel Container */}
                   {selectedProgram.images && selectedProgram.images.length > 0 ? (
                     <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                      {/* Main Image Display */}
+                      {/* Main Image / Video Display */}
                       <div className="relative" style={{height: 'clamp(320px, 60vh, 680px)'}}>
-                        <img
-                          src={selectedProgram.images[currentImageIndex]?.src}
-                          alt={selectedProgram.images[currentImageIndex]?.caption || `Photo ${currentImageIndex + 1}`}
-                          className="w-full h-full object-contain"
-                        />
+                        {selectedProgram.images[currentImageIndex]?.videoUrl ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${selectedProgram.images[currentImageIndex].videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/)?.[1]}`}
+                            title={selectedProgram.images[currentImageIndex]?.caption || `Video ${currentImageIndex + 1}`}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <img
+                            src={selectedProgram.images[currentImageIndex]?.src}
+                            alt={selectedProgram.images[currentImageIndex]?.caption || `Photo ${currentImageIndex + 1}`}
+                            className="w-full h-full object-contain"
+                          />
+                        )}
                         
                         {/* Image Caption */}
-                        {selectedProgram.images[currentImageIndex]?.caption && (
+                        {selectedProgram.images[currentImageIndex]?.caption && !selectedProgram.images[currentImageIndex]?.videoUrl && (
                           <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-sm p-3">
                             {selectedProgram.images[currentImageIndex].caption}
                           </div>
@@ -309,7 +319,7 @@ const Gallery = () => {
                             <button
                               key={index}
                               onClick={() => goToImage(index)}
-                              className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition-all ${
+                              className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden transition-all relative ${
                                 index === currentImageIndex 
                                   ? 'border-purple-600 shadow-lg' 
                                   : 'border-transparent opacity-60 hover:opacity-100'
@@ -320,6 +330,13 @@ const Gallery = () => {
                                 alt={`Thumbnail ${index + 1}`}
                                 className="w-full h-full object-cover"
                               />
+                              {img.videoUrl && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                  </svg>
+                                </div>
+                              )}
                             </button>
                           ))}
                         </div>

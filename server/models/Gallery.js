@@ -47,6 +47,10 @@ const gallerySchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  videoUrl: {
+    type: String,
+    default: null,
+  },
   isPublic: {
     type: Boolean,
     default: true,

@@ -7,6 +7,7 @@ import UserDetailsModal from './UserDetailsModal';
 import API from '../../utils/api';
 import GalleryImageForm from '../../components/GalleryImageForm';
 import ProfileManagement from '../../components/leader/ProfileManagement';
+import { downloadCSV } from '../../utils/csvExport';
 
 // Helper function to get profile image URL
 const getProfileImageUrl = (profilePicture) => {
@@ -55,6 +56,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [selectedGallery, setSelectedGallery] = useState(null);
   const [showGalleryForm, setShowGalleryForm] = useState(false);
   const galleryItemsPerPage = 6;
+  const [editingGallery, setEditingGallery] = useState(null); // collection slug being edited
+  const [galleryEditForm, setGalleryEditForm] = useState({});
+  const [galleryEditLoading, setGalleryEditLoading] = useState(false);
+
+  // All payments (for per-user total)
+  const [allPayments, setAllPayments] = useState([]);
 
   // Assign-leader state
   const [assigningMemberId, setAssigningMemberId] = useState(null);
@@ -104,6 +111,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       // Fetch payments (assuming you have an endpoint for this)
       const paymentsResponse = await API.get('/api/payments');
       const paymentsData = paymentsResponse.data.data || [];
+      setAllPayments(paymentsData);
       
       // Fetch regions and campuses from RegionCampus management
       const [regionsResponse, campusesResponse, interestsResponse, attendanceResponse] = await Promise.all([
@@ -191,6 +199,21 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       console.error('Failed to load galleries:', err);
     }
   }, []);
+
+  const handleGalleryEditSubmit = async (e) => {
+    e.preventDefault();
+    setGalleryEditLoading(true);
+    try {
+      await API.patch(`/api/gallery/program/${editingGallery}`, galleryEditForm);
+      setEditingGallery(null);
+      setGalleryEditForm({});
+      fetchGalleries();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update album');
+    } finally {
+      setGalleryEditLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchGalleries();
@@ -842,6 +865,21 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               <h3 className="text-lg font-medium leading-6 text-gray-900">User Management</h3>
               <div className="flex gap-2">
                 <button
+                  onClick={() => downloadCSV(
+                    'users.csv',
+                    ['Name', 'Member Code', 'Role', 'Region', 'Campus', 'Status', 'Email', 'Phone', 'Total Paid (NGN)', 'Total Paid (USD)'],
+                    users.map(u => {
+                      const pmts = allPayments.filter(p => p.userId === u._id || p.userId?._id === u._id);
+                      const ngn = pmts.filter(p => p.currency === 'NGN').reduce((s, p) => s + (p.amount || 0), 0);
+                      const usd = pmts.filter(p => p.currency === 'USD').reduce((s, p) => s + (p.amount || 0), 0);
+                      return [u.name, u.memberCode || '', u.role, u.region || '', u.campus || '', u.registrationStatus || '', u.email || '', u.phone || '', ngn || '', usd || ''];
+                    })
+                  )}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
+                >
+                  ↓ CSV
+                </button>
+                <button
                   onClick={() => setShowFilter(f => !f)}
                   className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm border rounded transition ${
                     showFilter ? 'bg-indigo-50 border-indigo-400 text-indigo-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -1006,6 +1044,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Assigned Leader
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Paid
+                      </th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -1078,6 +1119,20 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                               <span className="text-xs text-gray-400">—</span>
                             )}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {(() => {
+                              const userPmts = allPayments.filter(p => p.userId === user._id || p.userId?._id === user._id);
+                              if (userPmts.length === 0) return <span className="text-gray-400">—</span>;
+                              const ngnTotal = userPmts.filter(p => p.currency === 'NGN').reduce((s, p) => s + (p.amount || 0), 0);
+                              const usdTotal = userPmts.filter(p => p.currency === 'USD').reduce((s, p) => s + (p.amount || 0), 0);
+                              return (
+                                <span>
+                                  {ngnTotal > 0 && <span className="block">₦{ngnTotal.toLocaleString()}</span>}
+                                  {usdTotal > 0 && <span className="block">${usdTotal.toLocaleString()}</span>}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => viewUserDetails(user._id)}
@@ -1130,6 +1185,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
         {/* Gallery Tab */}
         {activeTab === 'gallery' && (
+          <>
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-4 py-5 sm:px-6 bg-gray-50 flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -1242,11 +1298,10 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                           .map((gallery) => (
                             <div
                               key={gallery._id}
-                              onClick={() => setSelectedGallery(gallery)}
-                              className="group cursor-pointer rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
+                              className="group rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
                             >
                               {/* Cover image */}
-                              <div className="relative aspect-video bg-gray-100 overflow-hidden">
+                              <div className="relative aspect-video bg-gray-100 overflow-hidden cursor-pointer" onClick={() => setSelectedGallery(gallery)}>
                                 {gallery.thumbnailImage ? (
                                   <img
                                     src={gallery.thumbnailImage}
@@ -1264,9 +1319,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                                   {gallery.isPublic ? 'Public' : 'Private'}
                                 </span>
                               </div>
-                              {/* Album info - single row */}
+                              {/* Album info */}
                               <div className="px-3 py-2 flex items-center justify-between gap-2">
-                                <div className="min-w-0">
+                                <div className="min-w-0 cursor-pointer flex-1" onClick={() => setSelectedGallery(gallery)}>
                                   <p className="text-sm font-medium text-gray-900 truncate">{gallery.programTitle}</p>
                                   <p className="text-xs text-gray-500">
                                     {gallery.programDate ? new Date(gallery.programDate).toLocaleDateString() : '—'}
@@ -1274,9 +1329,26 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                                     {gallery.imageCount || gallery.images?.length || 0} photo{(gallery.imageCount || gallery.images?.length || 0) !== 1 ? 's' : ''}
                                   </p>
                                 </div>
-                                <svg className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingGallery(gallery.collection);
+                                    setGalleryEditForm({
+                                      programTitle: gallery.programTitle || '',
+                                      programDate: gallery.programDate ? gallery.programDate.slice(0, 10) : '',
+                                      description: gallery.description || '',
+                                      testimony: gallery.testimony || '',
+                                      attendees: gallery.attendees || 0,
+                                      healings: gallery.healings || 0,
+                                      messageShared: gallery.messageShared || '',
+                                      isPublic: gallery.isPublic !== false,
+                                    });
+                                  }}
+                                  className="flex-shrink-0 text-xs text-indigo-600 hover:text-indigo-900 border border-indigo-200 hover:border-indigo-400 rounded px-2 py-1 transition"
+                                  title="Edit album"
+                                >
+                                  Edit
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -1312,16 +1384,85 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               )}
             </div>
           </div>
+
+          {/* Gallery Edit Modal */}
+          {editingGallery && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between px-5 py-4 border-b">
+                  <h3 className="text-base font-semibold text-gray-900">Edit Album</h3>
+                  <button onClick={() => setEditingGallery(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <form onSubmit={handleGalleryEditSubmit} className="px-5 py-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Program Title</label>
+                    <input type="text" required value={galleryEditForm.programTitle || ''} onChange={e => setGalleryEditForm(f => ({...f, programTitle: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Program Date</label>
+                    <input type="date" required value={galleryEditForm.programDate || ''} onChange={e => setGalleryEditForm(f => ({...f, programDate: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea rows="3" value={galleryEditForm.description || ''} onChange={e => setGalleryEditForm(f => ({...f, description: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Testimony</label>
+                    <textarea rows="3" value={galleryEditForm.testimony || ''} onChange={e => setGalleryEditForm(f => ({...f, testimony: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
+                      <input type="number" min="0" value={galleryEditForm.attendees || 0} onChange={e => setGalleryEditForm(f => ({...f, attendees: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Healings</label>
+                      <input type="number" min="0" value={galleryEditForm.healings || 0} onChange={e => setGalleryEditForm(f => ({...f, healings: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Message Title</label>
+                    <input type="text" value={galleryEditForm.messageShared || ''} onChange={e => setGalleryEditForm(f => ({...f, messageShared: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="editIsPublic" checked={galleryEditForm.isPublic !== false} onChange={e => setGalleryEditForm(f => ({...f, isPublic: e.target.checked}))} className="h-4 w-4 text-indigo-600 border-gray-300 rounded" />
+                    <label htmlFor="editIsPublic" className="text-sm text-gray-700">Publicly visible</label>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" onClick={() => setEditingGallery(null)} className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+                    <button type="submit" disabled={galleryEditLoading} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-60">
+                      {galleryEditLoading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {/* Interest Submissions Tab */}
         {activeTab === 'interests' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Interest Submissions</h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Review and manage people who have expressed interest in joining
-              </p>
+            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Interest Submissions</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  Review and manage people who have expressed interest in joining
+                </p>
+              </div>
+              {interests.length > 0 && (
+                <button
+                  onClick={() => downloadCSV(
+                    'interests.csv',
+                    ['Name', 'Phone', 'Email', 'Age', 'Location', 'Church', 'Reason', 'Status', 'Date'],
+                    interests.map(i => [i.name, i.phone || '', i.email || '', i.age || '', i.location || '', i.church || '', i.reason || '', i.status || '', new Date(i.createdAt).toLocaleDateString()])
+                  )}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
+                >
+                  ↓ CSV
+                </button>
+              )}
             </div>
             <div className="px-4 py-5 sm:p-6">
               {interests.length === 0 ? (
@@ -1398,11 +1539,25 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         {/* Event Attendance Tab */}
         {activeTab === 'attendance' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Event Attendance</h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                View guest registrations organized by events
-              </p>
+            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Event Attendance</h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  View guest registrations organized by events
+                </p>
+              </div>
+              {attendance.length > 0 && (
+                <button
+                  onClick={() => downloadCSV(
+                    'event-attendance.csv',
+                    ['Name', 'Phone', 'Location', 'Invited By', 'Event Name', 'Event Date', 'Status'],
+                    attendance.map(a => [a.name, a.phone || '', a.location || '', a.invitedBy || '', a.eventName || '', a.eventDate ? new Date(a.eventDate).toLocaleDateString() : '', a.status || ''])
+                  )}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
+                >
+                  ↓ CSV
+                </button>
+              )}
             </div>
             <div className="px-4 py-5 sm:p-6">
               {attendance.length === 0 ? (

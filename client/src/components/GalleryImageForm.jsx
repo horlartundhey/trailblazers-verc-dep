@@ -4,6 +4,7 @@ import API from '../utils/api';
 
 
 const GalleryImageForm = () => {
+  const [uploadMode, setUploadMode] = useState('image'); // 'image' | 'video'
   const [formData, setFormData] = useState({
     category: 'worship',
     caption: '',
@@ -17,6 +18,8 @@ const GalleryImageForm = () => {
     messageShared: '',
     isPublic: true,
   });
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoThumbail, setVideoThumbnail] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
@@ -42,6 +45,59 @@ const GalleryImageForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleVideoUrlChange = (e) => {
+    const url = e.target.value;
+    setVideoUrl(url);
+    const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if (match) {
+      setVideoThumbnail(`https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`);
+    } else {
+      setVideoThumbnail('');
+    }
+  };
+
+  const handleVideoSubmit = async (e) => {
+    e.preventDefault();
+    if (!videoUrl) {
+      setError('Please enter a YouTube URL');
+      return;
+    }
+    const match = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if (!match) {
+      setError('Please enter a valid YouTube URL');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await API.post('/api/gallery/video', {
+        ...formData,
+        videoUrl,
+      });
+      setSuccess('Video link added successfully!');
+      setVideoUrl('');
+      setVideoThumbnail('');
+      setFormData({
+        category: 'worship',
+        caption: '',
+        collection: '',
+        programTitle: '',
+        programDate: '',
+        description: '',
+        testimony: '',
+        attendees: '',
+        healings: '',
+        messageShared: '',
+        isPublic: true,
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add video link');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -166,8 +222,25 @@ const GalleryImageForm = () => {
         </div>
       )}
 
-      {/* Upload Form */}
-      <form onSubmit={handleSubmit} className="mb-8">
+      {/* Upload form toggle */}
+      <form onSubmit={uploadMode === 'video' ? handleVideoSubmit : handleSubmit} className="mb-8">
+        {/* Mode Toggle */}
+        <div className="flex rounded-md overflow-hidden border border-gray-300 w-fit mb-5">
+          <button
+            type="button"
+            onClick={() => setUploadMode('image')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${uploadMode === 'image' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Upload Images
+          </button>
+          <button
+            type="button"
+            onClick={() => setUploadMode('video')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${uploadMode === 'video' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Add YouTube Video
+          </button>
+        </div>
         <div className="grid grid-cols-1 gap-6 mt-4 sm:grid-cols-2">
           {/* Program Title - REQUIRED */}
           <div className="sm:col-span-2">
@@ -342,8 +415,30 @@ const GalleryImageForm = () => {
             </div>
           </div>
 
-          {/* Image Upload */}
-          <div className="sm:col-span-2">
+          {/* Image Upload / YouTube URL */}
+          {uploadMode === 'video' ? (
+            <div className="sm:col-span-2">
+              <label htmlFor="videoUrl" className="block text-sm font-medium text-gray-700">
+                YouTube Video URL <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="url"
+                id="videoUrl"
+                value={videoUrl}
+                onChange={handleVideoUrlChange}
+                required
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+              />
+              {videoThumbail && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1">Thumbnail preview:</p>
+                  <img src={videoThumbail} alt="YouTube thumbnail" className="h-32 rounded-md object-cover" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="sm:col-span-2">
             <label htmlFor="imageUpload" className="block text-sm font-medium text-gray-700">
               Images <span className="text-gray-500">(Multiple selection allowed)</span>
             </label>
@@ -425,14 +520,17 @@ const GalleryImageForm = () => {
               </div>
             </div>
           </div>
+          )}
         </div>
         <div className="mt-6">
           <button
             type="submit"
-            disabled={loading || selectedImages.length === 0}
-            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading || selectedImages.length === 0 ? 'opacity-75 cursor-not-allowed' : ''}`}
+            disabled={loading || (uploadMode === 'image' && selectedImages.length === 0)}
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading || (uploadMode === 'image' && selectedImages.length === 0) ? 'opacity-75 cursor-not-allowed' : ''}`}
           >
-            {loading ? `Uploading ${selectedImages.length} image(s)...` : `Upload ${selectedImages.length || 0} Image(s)`}
+            {loading
+              ? uploadMode === 'video' ? 'Adding video...' : `Uploading ${selectedImages.length} image(s)...`
+              : uploadMode === 'video' ? 'Add YouTube Video' : `Upload ${selectedImages.length || 0} Image(s)`}
           </button>
         </div>
       </form>

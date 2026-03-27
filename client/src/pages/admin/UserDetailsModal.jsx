@@ -11,13 +11,15 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
   const [paymentTab, setPaymentTab] = useState('record'); // 'record' or 'history'
   const [proofModalOpen, setProofModalOpen] = useState(false);
   const [selectedProof, setSelectedProof] = useState(null);
+  const [tagInput, setTagInput] = useState('');
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
     currency: 'NGN',
     date: new Date().toISOString().split('T')[0],
     description: '',
     paymentMethod: '',
-    proofOfPayment: null
+    proofOfPayment: null,
+    tags: []
   });
   const [formError, setFormError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -109,6 +111,10 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
         formData.append('proofOfPayment', paymentFormData.proofOfPayment);
       }
 
+      if (paymentFormData.tags && paymentFormData.tags.length > 0) {
+        formData.append('tags', JSON.stringify(paymentFormData.tags));
+      }
+
       const response = await API.post('/api/payments', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -126,8 +132,10 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
           date: new Date().toISOString().split('T')[0],
           description: '',
           paymentMethod: '',
-          proofOfPayment: null
+          proofOfPayment: null,
+          tags: []
         });
+        setTagInput('');
         
         // Refresh payments data
         await fetchUserDetails();
@@ -426,6 +434,41 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
                         />
                       </div>
 
+                      {/* Tags chip input */}
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {paymentFormData.tags.map((tag, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-800 rounded-full">
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => setPaymentFormData(prev => ({...prev, tags: prev.tags.filter((_, idx) => idx !== i)}))}
+                                className="hover:text-indigo-600 leading-none"
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={e => setTagInput(e.target.value)}
+                          onKeyDown={e => {
+                            if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                              e.preventDefault();
+                              const newTag = tagInput.trim().replace(/,$/, '');
+                              if (newTag && !paymentFormData.tags.includes(newTag)) {
+                                setPaymentFormData(prev => ({...prev, tags: [...prev.tags, newTag]}));
+                              }
+                              setTagInput('');
+                            }
+                          }}
+                          placeholder="Type a tag and press Enter"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Press Enter or comma to add a tag</p>
+                      </div>
+
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Proof of Payment</label>
                         <input
@@ -518,6 +561,9 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
                                 Recorded By
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tags
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Proof
                               </th>
                             </tr>
@@ -550,6 +596,17 @@ const UserDetailsModal = ({ userId, isOpen, onClose, token, onUserUpdate }) => {
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                     {recordedBy}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                    {payment.tags && payment.tags.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {payment.tags.map((tag, ti) => (
+                                          <span key={ti} className="px-1.5 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">{tag}</span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400">—</span>
+                                    )}
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                                     {proofOfPayment ? (
