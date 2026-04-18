@@ -312,13 +312,13 @@ const uploadVideo = asyncHandler(async (req, res) => {
     throw new Error('Please provide videoUrl, category, caption, collection, program title, and program date');
   }
 
-  const youtubeIdMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+  const youtubeIdMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([-\w]{11})/);
   if (!youtubeIdMatch) {
     res.status(400);
     throw new Error('Invalid YouTube URL');
   }
   const videoId = youtubeIdMatch[1];
-  const thumbnailSrc = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  const thumbnailSrc = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
   const validCategories = ['worship', 'baptism', 'community', 'youth', 'missions'];
   if (!validCategories.includes(category)) {

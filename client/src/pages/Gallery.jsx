@@ -49,7 +49,7 @@ const Gallery = () => {
       setLoading(true);
       const response = await API.get('/api/gallery/programs');
       if (response.data.success) {
-        setPrograms(response.data.data || []);
+        setPrograms((response.data.data || []).sort((a, b) => new Date(b.programDate || 0) - new Date(a.programDate || 0)));
       }
     } catch (error) {
       console.error('Failed to fetch gallery programs:', error);
@@ -265,7 +265,7 @@ const Gallery = () => {
                       <div className="relative" style={{height: 'clamp(320px, 60vh, 680px)'}}>
                         {selectedProgram.images[currentImageIndex]?.videoUrl ? (
                           <iframe
-                            src={`https://www.youtube.com/embed/${selectedProgram.images[currentImageIndex].videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/)?.[1]}`}
+                            src={`https://www.youtube.com/embed/${selectedProgram.images[currentImageIndex].videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([-\w]{11})/)?.[1]}`}
                             title={selectedProgram.images[currentImageIndex]?.caption || `Video ${currentImageIndex + 1}`}
                             className="w-full h-full"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

@@ -196,6 +196,8 @@ const [paymentStats, setPaymentStats] = useState({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [eventRegistrationStatus, setEventRegistrationStatus] = useState({});
+  const [expandedEventId, setExpandedEventId] = useState(null);
+  const [eventDetails, setEventDetails] = useState({});
 
   
   
@@ -635,6 +637,22 @@ const getUserRegistrationStatus = (event) => {
     m => m.memberId === user?._id
   );
   return registration?.status || null;
+};
+
+const toggleEventRegistrations = async (eventId) => {
+  if (expandedEventId === eventId) {
+    setExpandedEventId(null);
+    return;
+  }
+  if (!eventDetails[eventId]) {
+    try {
+      const res = await API.get(`/api/events/${eventId}`);
+      setEventDetails(prev => ({ ...prev, [eventId]: res.data.data }));
+    } catch (err) {
+      console.error('Failed to load event details:', err);
+    }
+  }
+  setExpandedEventId(eventId);
 };
 
 
@@ -1244,6 +1262,58 @@ const formatCurrencyAmount = (amount, currency) => {
                         </div> */}
                       </div>
                     </div>
+                    {/* Registrations panel */}
+                    <div className="mt-3 pt-3 border-t">
+                      <button
+                        onClick={() => toggleEventRegistrations(event._id)}
+                        className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={expandedEventId === event._id ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                        </svg>
+                        {expandedEventId === event._id ? 'Hide' : 'View'} Registrations
+                        ({event.registeredMembers?.length || 0})
+                      </button>
+                      {expandedEventId === event._id && (
+                        <div className="mt-3">
+                          {eventDetails[event._id] ? (
+                            eventDetails[event._id].registeredMembers?.length > 0 ? (
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="text-left text-xs text-gray-500 uppercase">
+                                    <th className="pb-2 pr-4">Name</th>
+                                    <th className="pb-2 pr-4">Role</th>
+                                    <th className="pb-2">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {eventDetails[event._id].registeredMembers.map((reg, i) => (
+                                    <tr key={i}>
+                                      <td className="py-1.5 pr-4 font-medium">{reg.memberId?.name || 'Unknown'}</td>
+                                      <td className="py-1.5 pr-4 text-gray-500">{reg.memberId?.role || '—'}</td>
+                                      <td className="py-1.5">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                          reg.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
+                                          reg.status === 'Waitlisted' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-gray-100 text-gray-600'
+                                        }`}>{reg.status}</span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="text-sm text-gray-500">No registrations yet.</p>
+                            )
+                          ) : (
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                              <div className="animate-spin h-4 w-4 border-2 border-indigo-400 border-t-transparent rounded-full"></div>
+                              Loading...
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1254,29 +1324,7 @@ const formatCurrencyAmount = (amount, currency) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No events</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating a new event.</p>
-              <div className="mt-6">
-                <button
-                  onClick={() => {
-                    setEventFormData({
-                      name: '',
-                      description: '',
-                      date: '',
-                      location: '',
-                      capacity: '',
-                      image: null
-                    });
-                    setEventAction('create');
-                    setIsEventModalOpen(true);
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  New Event
-                </button>
-              </div>
+              <p className="mt-1 text-sm text-gray-500">No events have been scheduled yet.</p>
             </div>
           )}
         </div>

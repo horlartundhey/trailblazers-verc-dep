@@ -18,6 +18,8 @@ import Events from './pages/Events';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Gallery from './pages/Gallery';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Set up application with Redux
 const AppContent = () => {
@@ -80,6 +82,8 @@ const AppContent = () => {
       <Route path="/gallery" element={<Gallery />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route path="/register" element={<Navigate to="/interest" replace />} />
       <Route path="/interest" element={<InterestForm />} />
       

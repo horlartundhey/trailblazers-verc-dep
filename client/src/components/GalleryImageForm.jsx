@@ -50,7 +50,7 @@ const GalleryImageForm = () => {
   const handleVideoUrlChange = (e) => {
     const url = e.target.value;
     setVideoUrl(url);
-    const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([-\w]{11})/);
     if (match) {
       setVideoThumbnail(`https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`);
     } else {
@@ -64,7 +64,7 @@ const GalleryImageForm = () => {
       setError('Please enter a YouTube URL');
       return;
     }
-    const match = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    const match = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([-\w]{11})/);
     if (!match) {
       setError('Please enter a valid YouTube URL');
       return;
@@ -76,6 +76,7 @@ const GalleryImageForm = () => {
       await API.post('/api/gallery/video', {
         ...formData,
         videoUrl,
+        programDate: formData.programDate ? new Date(formData.programDate + 'T00:00:00').toISOString() : formData.programDate,
       });
       setSuccess('Video link added successfully!');
       setVideoUrl('');
@@ -153,7 +154,7 @@ const GalleryImageForm = () => {
         formDataToSend.append('caption', previewImages[i]?.caption || `Image ${i + 1}`);
         formDataToSend.append('collection', formData.collection);
         formDataToSend.append('programTitle', formData.programTitle);
-        formDataToSend.append('programDate', formData.programDate);
+        formDataToSend.append('programDate', formData.programDate ? new Date(formData.programDate + 'T00:00:00').toISOString() : '');
         formDataToSend.append('description', formData.description);
         formDataToSend.append('testimony', formData.testimony);
         formDataToSend.append('attendees', formData.attendees || 0);
@@ -427,13 +428,22 @@ const GalleryImageForm = () => {
                 value={videoUrl}
                 onChange={handleVideoUrlChange}
                 required
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="https://www.youtube.com/watch?v=... or /shorts/..."
                 className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
               />
               {videoThumbail && (
                 <div className="mt-3">
                   <p className="text-xs text-gray-500 mb-1">Thumbnail preview:</p>
-                  <img src={videoThumbail} alt="YouTube thumbnail" className="h-32 rounded-md object-cover" />
+                  <img
+                    src={videoThumbail}
+                    alt="YouTube thumbnail"
+                    className="h-32 rounded-md object-cover"
+                    onError={(e) => {
+                      if (e.target.src.includes('maxresdefault')) {
+                        e.target.src = e.target.src.replace('maxresdefault', 'hqdefault');
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>

@@ -30,6 +30,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  address: {
+    type: String,
+    trim: true
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
@@ -84,6 +88,12 @@ const UserSchema = new mongoose.Schema({
     type: String,
     unique: true,
     sparse: true  // Only enforces uniqueness if the field exists
+  },
+  resetPasswordToken: {
+    type: String
+  },
+  resetPasswordExpires: {
+    type: Date
   },
   createdAt: {
     type: Date,

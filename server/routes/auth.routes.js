@@ -34,4 +34,18 @@ router.get('/me', protect, authController.getMe);
 // Complete registration
 router.put('/complete-registration', protect, authController.completeRegistration);
 
+// Forgot password
+router.post(
+  '/forgot-password',
+  [check('email', 'Please include a valid email').isEmail()],
+  authController.forgotPassword
+);
+
+// Reset password
+router.post(
+  '/reset-password/:token',
+  [check('password', 'Password must be at least 8 characters').isLength({ min: 8 })],
+  authController.resetPassword
+);
+
 module.exports = router;

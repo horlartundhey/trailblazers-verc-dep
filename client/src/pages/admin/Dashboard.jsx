@@ -67,6 +67,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [assigningMemberId, setAssigningMemberId] = useState(null);
   const [assignLeaderLoading, setAssignLeaderLoading] = useState(false);
 
+  // Payment tag filter
+  const [paymentTagFilter, setPaymentTagFilter] = useState('');
+
   // Filter panel toggle
   const [showFilter, setShowFilter] = useState(false);
 
@@ -194,7 +197,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const fetchGalleries = useCallback(async () => {
     try {
       const response = await API.get('/api/gallery/admin/programs');
-      setGalleries(response.data.data || []);
+      setGalleries((response.data.data || []).sort((a, b) => new Date(b.programDate || 0) - new Date(a.programDate || 0)));
     } catch (err) {
       console.error('Failed to load galleries:', err);
     }
@@ -204,7 +207,13 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
     e.preventDefault();
     setGalleryEditLoading(true);
     try {
-      await API.patch(`/api/gallery/program/${editingGallery}`, galleryEditForm);
+      const payload = {
+        ...galleryEditForm,
+        programDate: galleryEditForm.programDate
+          ? new Date(galleryEditForm.programDate + 'T00:00:00').toISOString()
+          : galleryEditForm.programDate,
+      };
+      await API.patch(`/api/gallery/program/${editingGallery}`, payload);
       setEditingGallery(null);
       setGalleryEditForm({});
       fetchGalleries();
@@ -684,6 +693,16 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             </button>
             <button
               className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
+                activeTab === 'payments' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } font-medium`}
+              onClick={() => setActiveTab('payments')}
+            >
+              Payments
+            </button>
+            <button
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'regions' 
                   ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -867,12 +886,12 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 <button
                   onClick={() => downloadCSV(
                     'users.csv',
-                    ['Name', 'Member Code', 'Role', 'Region', 'Campus', 'Status', 'Email', 'Phone', 'Total Paid (NGN)', 'Total Paid (USD)'],
+                    ['Name', 'Member Code', 'Role', 'Region', 'Campus', 'Status', 'Email', 'Phone', 'Address', 'Total Paid (NGN)', 'Total Paid (USD)'],
                     users.map(u => {
                       const pmts = allPayments.filter(p => p.userId === u._id || p.userId?._id === u._id);
                       const ngn = pmts.filter(p => p.currency === 'NGN').reduce((s, p) => s + (p.amount || 0), 0);
                       const usd = pmts.filter(p => p.currency === 'USD').reduce((s, p) => s + (p.amount || 0), 0);
-                      return [u.name, u.memberCode || '', u.role, u.region || '', u.campus || '', u.registrationStatus || '', u.email || '', u.phone || '', ngn || '', usd || ''];
+                      return [u.name, u.memberCode || '', u.role, u.region || '', u.campus || '', u.registrationStatus || '', u.email || '', u.phone || '', u.address || '', ngn || '', usd || ''];
                     })
                   )}
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
@@ -922,25 +941,31 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Region</label>
-                    <input
-                      type="text"
+                    <select
                       name="region"
                       value={filterParams.region}
                       onChange={handleFilterChange}
-                      placeholder="e.g. Lagos"
                       className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
+                    >
+                      <option value="">All Regions</option>
+                      {regions.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Campus</label>
-                    <input
-                      type="text"
+                    <select
                       name="campus"
                       value={filterParams.campus}
                       onChange={handleFilterChange}
-                      placeholder="e.g. Main Campus"
                       className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
+                    >
+                      <option value="">All Campuses</option>
+                      {campuses.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
@@ -1622,10 +1647,120 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
           </div>
         )}
 
+        {/* Payments Tab */}
+        {activeTab === 'payments' && (() => {
+          const tagTrim = paymentTagFilter.trim().toLowerCase();
+          const filteredPayments = tagTrim
+            ? allPayments.filter(p => p.tags && p.tags.some(t => t.toLowerCase().includes(tagTrim)))
+            : allPayments;
+          const sortedPayments = [...filteredPayments].sort((a, b) => new Date(b.date) - new Date(a.date));
+          return (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="px-4 py-5 sm:px-6 bg-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-medium leading-6 text-gray-900">All Payments</h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                    {sortedPayments.length} record{sortedPayments.length !== 1 ? 's' : ''}{tagTrim ? ` tagged "${paymentTagFilter.trim()}"` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="text"
+                    value={paymentTagFilter}
+                    onChange={e => setPaymentTagFilter(e.target.value)}
+                    placeholder="Filter by tag…"
+                    className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-44"
+                  />
+                  {paymentTagFilter && (
+                    <button onClick={() => setPaymentTagFilter('')} className="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
+                  )}
+                  <button
+                    onClick={() => downloadCSV(
+                      'payments.csv',
+                      ['Member Name', 'Member Code', 'Amount', 'Currency', 'Method', 'Tags', 'Description', 'Date', 'Recorded By'],
+                      sortedPayments.map(p => [
+                        p.userId?.name || '',
+                        p.userId?.memberCode || '',
+                        p.amount,
+                        p.currency,
+                        p.paymentMethod,
+                        (p.tags || []).join(', '),
+                        p.description || '',
+                        p.date ? new Date(p.date).toLocaleDateString() : '',
+                        p.recordedBy?.name || '',
+                      ])
+                    )}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    ↓ CSV
+                  </button>
+                </div>
+              </div>
+              <div className="px-4 py-5 sm:p-6">
+                {sortedPayments.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 text-sm">
+                    {tagTrim ? `No payments found with tag "${paymentTagFilter.trim()}"` : 'No payments recorded yet.'}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recorded By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {sortedPayments.map(p => (
+                          <tr key={p._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <p className="font-medium text-gray-900">{p.userId?.name || '—'}</p>
+                              <p className="text-xs text-gray-500">{p.userId?.memberCode || ''}</p>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                              {p.currency === 'NGN' ? '₦' : '$'}{(p.amount || 0).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-gray-700 capitalize">{p.paymentMethod}</td>
+                            <td className="px-4 py-3">
+                              {p.tags && p.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {p.tags.map((tag, i) => (
+                                    <button
+                                      key={i}
+                                      onClick={() => setPaymentTagFilter(tag)}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition cursor-pointer"
+                                      title={`Filter by "${tag}"`}
+                                    >
+                                      {tag}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{p.description || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                              {p.date ? new Date(p.date).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-gray-700">{p.recordedBy?.name || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Event Attendance Tab */}
         {activeTab === 'attendance' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
+          <div className="bg-white rounded-lg shadow overflow-hidden">            <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center flex-wrap gap-3">
               <div>
                 <h3 className="text-lg font-medium leading-6 text-gray-900">Event Attendance</h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500">

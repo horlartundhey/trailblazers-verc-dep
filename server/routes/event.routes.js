@@ -69,11 +69,11 @@ router.post(
 
 // @desc    Create a new event
 // @route   POST /api/events
-// @access  Private (Admin, Leader)
+// @access  Private (Admin only)
 router.post(
   '/',
   protect,
-  authorize('Admin', 'Leader'),
+  authorize('Admin'),
   handleEventImageUpload,
   [
     check('name', 'Event name is required').not().isEmpty(),
