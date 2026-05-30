@@ -12,10 +12,11 @@ exports.submitContact = async (req, res) => {
   }
 
   try {
-    const { name, email, subject, message } = req.body;
+    const { name, phone, email, subject, message } = req.body;
 
     const contact = new Contact({
       name,
+      phone,
       email,
       subject,
       message

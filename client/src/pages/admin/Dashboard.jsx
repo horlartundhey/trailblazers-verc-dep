@@ -275,8 +275,8 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       const eventPayload = {
         ...eventData,
         createdBy: user._id,  // Add the current user as creator
-        registrationStartDate: eventData.registrationStartDate || eventData.date, // Default to event date if not specified
-        registrationEndDate: eventData.registrationEndDate || eventData.startTime, // Default to event start time if not specified
+        registrationStartDate: eventData.registrationStartDate || new Date().toISOString(), // Default to now if not specified
+        registrationEndDate: eventData.registrationEndDate || eventData.date, // Default to event date if not specified
       };
       
       // If an image file is present, create a FormData object
@@ -1379,10 +1379,13 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                                     e.stopPropagation();
                                     if (!window.confirm(`Delete the entire "${gallery.programTitle}" album? This cannot be undone.`)) return;
                                     try {
-                                      await API.delete(`/gallery/program/${gallery.collection}`);
+                                      await API.delete(`/api/gallery/program/${encodeURIComponent(gallery.collection)}`);
+                                      setSuccessMessage(`Album "${gallery.programTitle}" deleted successfully!`);
+                                      setTimeout(() => setSuccessMessage(''), 3000);
                                       fetchGalleries();
                                     } catch (err) {
-                                      alert(err.response?.data?.message || 'Failed to delete album');
+                                      setErrorMessage(err.response?.data?.message || 'Failed to delete album');
+                                      setTimeout(() => setErrorMessage(''), 3000);
                                     }
                                   }}
                                   className="flex-shrink-0 text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition"

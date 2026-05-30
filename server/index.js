@@ -6,8 +6,8 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables — use __dirname so the path is correct regardless of CWD
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Import database connection
 const connectDB = require('./config/db');

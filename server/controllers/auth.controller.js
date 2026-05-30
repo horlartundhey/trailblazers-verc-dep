@@ -266,7 +266,19 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    await sendPasswordResetEmail(user.email, resetToken);
+    // Always log reset link locally so you can test without email
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    console.log('\n=== Password Reset Link (also sent via email) ===');
+    console.log(`User: ${user.email}`);
+    console.log(`Link: ${resetUrl}`);
+    console.log('=================================================\n');
+
+    const emailResult = await sendPasswordResetEmail(user.email, resetToken);
+    if (!emailResult.success) {
+      console.error('Email send failed:', emailResult.error);
+    } else {
+      console.log('Email sent successfully, id:', emailResult.messageId);
+    }
 
     res.json({
       success: true,

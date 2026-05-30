@@ -1,16 +1,16 @@
 // utils/emailService.js
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Create reusable transporter
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-    }
-  });
+// Lazy-initialize so the key is read at call-time, not at require-time
+let _resend = null;
+const getResend = () => {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
 };
+
+// The "from" address — must be a verified domain in Resend.
+// During testing you can use: onboarding@resend.dev (only delivers to your own verified email)
+const FROM_ADDRESS = () => process.env.EMAIL_FROM || 'Trailblazer <onboarding@resend.dev>';
 
 /**
  * Send welcome email to new user
@@ -19,10 +19,8 @@ const createTransporter = () => {
  */
 const sendWelcomeEmail = async (user, tempPassword) => {
   try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+    const { data, error } = await getResend().emails.send({
+      from: FROM_ADDRESS(),
       to: user.email,
       subject: 'Welcome to Trailblazer - Account Created',
       html: `
@@ -47,11 +45,11 @@ const sendWelcomeEmail = async (user, tempPassword) => {
           </p>
         </div>
       `
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    if (error) throw new Error(error.message);
+    console.log('Welcome email sent:', data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error('Error sending welcome email:', error);
     return { success: false, error: error.message };
@@ -65,24 +63,17 @@ const sendWelcomeEmail = async (user, tempPassword) => {
  */
 const sendEventNotification = async (recipients, event) => {
   try {
-    const transporter = createTransporter();
-    
-    // Format event date
     const eventDate = new Date(event.date);
     const formattedDate = eventDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
     const formattedTime = eventDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
+      hour: '2-digit', minute: '2-digit'
     });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      bcc: recipients, // Use BCC to hide recipient emails
+    const { data, error } = await getResend().emails.send({
+      from: FROM_ADDRESS(),
+      bcc: recipients,
       subject: `New Event: ${event.title}`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -119,11 +110,11 @@ const sendEventNotification = async (recipients, event) => {
           </p>
         </div>
       `
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Event notification sent:', info.messageId);
-    return { success: true, messageId: info.messageId, recipientCount: recipients.length };
+    if (error) throw new Error(error.message);
+    console.log('Event notification sent:', data.id);
+    return { success: true, messageId: data.id, recipientCount: recipients.length };
   } catch (error) {
     console.error('Error sending event notification:', error);
     return { success: false, error: error.message };
@@ -137,11 +128,10 @@ const sendEventNotification = async (recipients, event) => {
  */
 const sendPasswordResetEmail = async (email, resetToken) => {
   try {
-    const transporter = createTransporter();
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
-    
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+
+    const { data, error } = await getResend().emails.send({
+      from: FROM_ADDRESS(),
       to: email,
       subject: 'Password Reset Request - Trailblazer',
       html: `
@@ -168,13 +158,33 @@ const sendPasswordResetEmail = async (email, resetToken) => {
           </p>
         </div>
       `
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Password reset email sent:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    if (error) throw new Error(error.message);
+    console.log('Password reset email sent:', data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error('Error sending password reset email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Generic send email utility
+ */
+const sendEmail = async ({ to, subject, html }) => {
+  try {
+    const { data, error } = await getResend().emails.send({
+      from: FROM_ADDRESS(),
+      to,
+      subject,
+      html
+    });
+
+    if (error) throw new Error(error.message);
+    return { success: true, messageId: data.id };
+  } catch (error) {
+    console.error('Error sending email:', error);
     return { success: false, error: error.message };
   }
 };
@@ -182,5 +192,6 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 module.exports = {
   sendWelcomeEmail,
   sendEventNotification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmail
 };

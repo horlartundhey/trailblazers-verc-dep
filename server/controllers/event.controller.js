@@ -111,10 +111,10 @@ exports.createEvent = async (req, res) => {
       });
     }
 
-    if (regEndDate >= eventDate) {
+    if (regEndDate > eventDate) {
       return res.status(400).json({
         success: false,
-        message: 'Registration must end before the event date'
+        message: 'Registration must end before or on the event date'
       });
     }
 

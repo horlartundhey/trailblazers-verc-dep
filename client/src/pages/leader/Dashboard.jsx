@@ -227,20 +227,24 @@ const [paymentStats, setPaymentStats] = useState({
       (response.data.data || []).forEach(payment => {
         const currency = payment.currency || 'USD';
         const paymentDate = new Date(payment.date);
-        const month = monthNames[paymentDate.getMonth()];
+        const month = !isNaN(paymentDate.getTime())
+          ? `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`
+          : null;
         
         // Update totals by currency
         totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
         
         // Update totals by month
-        totalsByMonth[month] = (totalsByMonth[month] || 0) + payment.amount;
+        if (month) totalsByMonth[month] = (totalsByMonth[month] || 0) + payment.amount;
         
         // Update totals by month and currency
-        if (!totalsByMonthAndCurrency[month]) {
-          totalsByMonthAndCurrency[month] = {};
+        if (month) {
+          if (!totalsByMonthAndCurrency[month]) {
+            totalsByMonthAndCurrency[month] = {};
+          }
+          totalsByMonthAndCurrency[month][currency] = 
+            (totalsByMonthAndCurrency[month][currency] || 0) + payment.amount;
         }
-        totalsByMonthAndCurrency[month][currency] = 
-          (totalsByMonthAndCurrency[month][currency] || 0) + payment.amount;
       });
       
       setPaymentStats({
@@ -292,7 +296,9 @@ const [paymentStats, setPaymentStats] = useState({
       paymentsData.forEach(payment => {
         const currency = payment.currency || 'USD';
         const paymentDate = new Date(payment.date);
-        const month = monthNames[paymentDate.getMonth()];
+        const month = !isNaN(paymentDate.getTime())
+          ? `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`
+          : null;
         
         // Update totals by currency
         totalsByCurrency[currency] = (totalsByCurrency[currency] || 0) + payment.amount;
