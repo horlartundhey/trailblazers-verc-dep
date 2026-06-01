@@ -69,6 +69,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
   // Contact messages
   const [contacts, setContacts] = useState([]);
+  const [contactsViewed, setContactsViewed] = useState(false);
 
   // Payment tag filter
   const [paymentTagFilter, setPaymentTagFilter] = useState('');
@@ -120,13 +121,6 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       setAllPayments(paymentsData);
       
       // Fetch regions and campuses from RegionCampus management
-      const [regionsResponse, campusesResponse, interestsResponse, attendanceResponse] = await Promise.all([
-        API.get('/api/region-campus/regions'),
-        API.get('/api/region-campus/campuses'),
-        API.get('/api/interest'),
-        API.get('/api/events/attendance/all'),
-        API.get('/api/contact')
-      ]);
       const [regionsResponse, campusesResponse, interestsResponse, attendanceResponse, contactsResponse] = await Promise.all([
         API.get('/api/region-campus/regions'),
         API.get('/api/region-campus/campuses'),
@@ -141,6 +135,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       setInterests(interestsData);
       setAttendance(attendanceData);
       setContacts(contactsResponse.data.data || []);
+      setContactsViewed(false);
         
       // Calculate dashboard statistics from user data
       const totalMembers = userData.filter(user => user.role === 'Member').length;
@@ -273,6 +268,8 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       markInterestsAsViewed();
     } else if (tab === 'attendance') {
       markAttendanceAsViewed();
+    } else if (tab === 'contacts') {
+      setContactsViewed(true);
     }
   };
 
@@ -729,9 +726,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                   ? 'border-indigo-500 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } font-medium`}
-              onClick={() => setActiveTab('contacts')}
+              onClick={() => handleTabChange('contacts')}
             >
-              Messages {contacts.length > 0 && <span className="ml-1 bg-indigo-100 text-indigo-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">{contacts.length}</span>}
+              Messages {contacts.length > 0 && !contactsViewed && <span className="ml-1 bg-indigo-100 text-indigo-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">{contacts.length}</span>}
             </button>
           </div>
           
