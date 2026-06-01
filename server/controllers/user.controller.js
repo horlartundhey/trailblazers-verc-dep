@@ -176,7 +176,7 @@ exports.createUser = async (req, res) => {
   }
 
   try {
-    const { name, email, phone, password, role, region, campus } = req.body;
+    const { name, email, phone, password, role, region, campus, memberCode } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -230,6 +230,7 @@ exports.createUser = async (req, res) => {
       campus: role === 'Admin' ? undefined : campus,
       leaderId: role === 'Member' ? leaderId : undefined,
       position: role === 'Leader' ? req.body.position : undefined,
+      memberCode: role === 'Member' && memberCode ? memberCode.trim() : undefined,
       registrationStatus: 'Completed'
     });
 

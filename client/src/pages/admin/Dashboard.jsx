@@ -3026,13 +3026,13 @@ const UserForm = ({ onUserCreated }) => {
                 id="memberCode"
                 value={formData.memberCode}
                 onChange={handleChange}
-                placeholder="e.g., TBN-12345"
+                placeholder="e.g., TBN-00001"
                 pattern="TBN-\d{5}"
-                title="Format: TBN-XXXXX (5 digits)"
+                title="Format: TBN-XXXXX (5 digits, e.g. TBN-00001)"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Leave blank to auto-generate. Format: TBN-XXXXX (e.g., TBN-12345)
+                Leave blank to auto-generate. Use <strong>TBN-00001</strong> for the president's ID. Format: TBN-XXXXX (5 digits).
               </p>
             </div>
           )}
