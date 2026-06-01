@@ -80,6 +80,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -568,12 +569,24 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Top Header */}
-      <header className="bg-white shadow z-10 flex-shrink-0">
+      <header className="bg-white shadow z-30 flex-shrink-0">
         <div className="px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+          <div className="flex items-center gap-3">
+            {/* Hamburger - mobile only */}
+            <button
+              className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+          </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
-              <div className="flex flex-col items-end">
+              <div className="hidden sm:flex flex-col items-end">
                 <span className="text-sm font-medium text-gray-900">{user?.name}</span>
                 <span className="text-xs text-gray-500">Administrator</span>
               </div>
@@ -608,8 +621,18 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 </button>
               </div>
             </div>
-            <button onClick={handleLogout} className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition">
-              Logout
+            {/* Logout: icon-only on mobile, full button on sm+ */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition"
+              aria-label="Logout"
+            >
+              {/* Icon always visible */}
+              <svg className="h-5 w-5 sm:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              {/* Text hidden on mobile */}
+              <span className="hidden sm:inline text-sm">Logout</span>
             </button>
           </div>
         </div>
@@ -618,8 +641,32 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       {/* Body: Sidebar + Content */}
       <div className="flex flex-1 overflow-hidden">
 
+        {/* Mobile overlay backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40 z-20 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <aside className="w-56 bg-white shadow-md flex-shrink-0 overflow-y-auto">
+        <aside className={`
+          fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out overflow-y-auto
+          lg:static lg:inset-auto lg:z-auto lg:w-56 lg:shadow-md lg:translate-x-0 lg:flex-shrink-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          {/* Mobile close button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 lg:hidden">
+            <span className="text-sm font-semibold text-gray-700">Menu</span>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <nav className="py-4 space-y-1 px-2">
             {[
               { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
@@ -631,7 +678,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
             ].map(({ key, label, icon }) => (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => { setActiveTab(key); setSidebarOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === key
                     ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -645,7 +692,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
             {/* Interests with badge */}
             <button
-              onClick={() => handleTabChange('interests')}
+              onClick={() => { handleTabChange('interests'); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === 'interests'
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -663,7 +710,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
             {/* Attendance with badge */}
             <button
-              onClick={() => handleTabChange('attendance')}
+              onClick={() => { handleTabChange('attendance'); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === 'attendance'
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -681,7 +728,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
             {/* Messages with badge */}
             <button
-              onClick={() => handleTabChange('contacts')}
+              onClick={() => { handleTabChange('contacts'); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === 'contacts'
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -699,7 +746,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
             {/* Regions */}
             <button
-              onClick={() => navigate('/admin/region-campus')}
+              onClick={() => { navigate('/admin/region-campus'); setSidebarOpen(false); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <span>🗺️</span>
