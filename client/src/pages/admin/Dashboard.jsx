@@ -67,6 +67,9 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   const [assigningMemberId, setAssigningMemberId] = useState(null);
   const [assignLeaderLoading, setAssignLeaderLoading] = useState(false);
 
+  // Contact messages
+  const [contacts, setContacts] = useState([]);
+
   // Payment tag filter
   const [paymentTagFilter, setPaymentTagFilter] = useState('');
 
@@ -121,7 +124,15 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         API.get('/api/region-campus/regions'),
         API.get('/api/region-campus/campuses'),
         API.get('/api/interest'),
-        API.get('/api/events/attendance/all')
+        API.get('/api/events/attendance/all'),
+        API.get('/api/contact')
+      ]);
+      const [regionsResponse, campusesResponse, interestsResponse, attendanceResponse, contactsResponse] = await Promise.all([
+        API.get('/api/region-campus/regions'),
+        API.get('/api/region-campus/campuses'),
+        API.get('/api/interest'),
+        API.get('/api/events/attendance/all'),
+        API.get('/api/contact')
       ]);
       const regionsData = regionsResponse.data.data || [];
       const campusesData = campusesResponse.data.data || [];
@@ -129,6 +140,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       const attendanceData = attendanceResponse.data.data || [];
       setInterests(interestsData);
       setAttendance(attendanceData);
+      setContacts(contactsResponse.data.data || []);
         
       // Calculate dashboard statistics from user data
       const totalMembers = userData.filter(user => user.role === 'Member').length;
@@ -710,6 +722,16 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
               onClick={() => navigate('/admin/region-campus')}
             >
               Regions & Campuses
+            </button>
+            <button
+              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
+                activeTab === 'contacts'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } font-medium`}
+              onClick={() => setActiveTab('contacts')}
+            >
+              Messages {contacts.length > 0 && <span className="ml-1 bg-indigo-100 text-indigo-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">{contacts.length}</span>}
             </button>
           </div>
           
@@ -1956,6 +1978,35 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
       {successMessage && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
           {successMessage}
+        </div>
+      )}
+
+      {/* Contact Messages Tab */}
+      {activeTab === 'contacts' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
+            <h3 className="text-lg font-medium leading-6 text-gray-900">Contact Messages</h3>
+            <span className="text-sm text-gray-500">{contacts.length} total</span>
+          </div>
+          {contacts.length === 0 ? (
+            <div className="px-4 py-10 text-center text-gray-500">No messages yet.</div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {[...contacts].reverse().map((c) => (
+                <div key={c._id} className="px-4 py-4 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{c.name} {c.phone && <span className="font-normal text-gray-500">· {c.phone}</span>}</p>
+                      <p className="text-sm text-indigo-600">{c.email}</p>
+                      <p className="mt-1 text-sm font-medium text-gray-700">{c.subject}</p>
+                      <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap">{c.message}</p>
+                    </div>
+                    <p className="text-xs text-gray-400 whitespace-nowrap">{new Date(c.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
