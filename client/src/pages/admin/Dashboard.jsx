@@ -532,6 +532,17 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
     fetchDashboardData();
   };
 
+  const handleDeleteContact = async (contactId) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      await API.delete(`/api/contact/${contactId}`);
+      setContacts(prev => prev.filter(c => c._id !== contactId));
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Failed to delete message');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+  };
+
   const handleAssignLeader = async (memberId, leaderId) => {
     setAssignLeaderLoading(true);
     try {
@@ -555,12 +566,11 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
   }
   
   return (
-
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Top Header */}
+      <header className="bg-white shadow z-10 flex-shrink-0">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
               <div className="flex flex-col items-end">
@@ -568,7 +578,7 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                 <span className="text-xs text-gray-500">Administrator</span>
               </div>
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowProfile(true)}
                   className="flex items-center justify-center focus:outline-none hover:opacity-80 transition-opacity"
                 >
@@ -577,174 +587,134 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
                       <img
                         src={getProfileImageUrl(user.profilePicture)}
                         alt="Profile"
-                        className="h-10 w-10 rounded-full object-cover border-2 border-indigo-500"
+                        className="h-9 w-9 rounded-full object-cover border-2 border-indigo-500"
                         onError={(e) => {
-                          console.error('Failed to load profile image:', getProfileImageUrl(user.profilePicture));
                           e.target.onerror = null;
                           e.target.style.display = 'none';
-                          // Show fallback
                           const fallback = e.target.nextElementSibling;
                           if (fallback) fallback.style.display = 'flex';
                         }}
                       />
-                      <div className="h-10 w-10 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
-                        <span className="text-lg font-medium text-indigo-600">
-                          {user?.name?.charAt(0)?.toUpperCase()}
-                        </span>
+                      <div className="h-9 w-9 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-500" style={{ display: 'none' }}>
+                        <span className="text-base font-medium text-indigo-600">{user?.name?.charAt(0)?.toUpperCase()}</span>
                       </div>
                     </>
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
-                      <span className="text-lg font-medium text-indigo-600">
-                        {user?.name?.charAt(0)?.toUpperCase()}
-                      </span>
+                    <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-500">
+                      <span className="text-base font-medium text-indigo-600">{user?.name?.charAt(0)?.toUpperCase()}</span>
                     </div>
                   )}
                   <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 border-2 border-white"></div>
                 </button>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-            >
+            <button onClick={handleLogout} className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition">
               Logout
             </button>
           </div>
         </div>
       </header>
-      
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Scrollable tabs on mobile with gradient indicator */}
-          <div className="relative">
-            <div className="flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-thin -mb-px pb-2">
+
+      {/* Body: Sidebar + Content */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Sidebar */}
+        <aside className="w-56 bg-white shadow-md flex-shrink-0 overflow-y-auto">
+          <nav className="py-4 space-y-1 px-2">
+            {[
+              { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
+              { key: 'users', label: 'Users', icon: '👥' },
+              { key: 'createUser', label: 'Create User', icon: '➕' },
+              { key: 'events', label: 'Events', icon: '📅' },
+              { key: 'gallery', label: 'Gallery', icon: '🖼️' },
+              { key: 'payments', label: 'Payments', icon: '💳' },
+            ].map(({ key, label, icon }) => (
               <button
-                className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                  activeTab === 'dashboard' 
-                    ? 'border-indigo-500 text-indigo-600' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                } font-medium`}
-                onClick={() => setActiveTab('dashboard')}
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === key
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
               >
-                Dashboard
+                <span>{icon}</span>
+                <span>{label}</span>
               </button>
+            ))}
+
+            {/* Interests with badge */}
             <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'gallery' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('gallery')}
-            >
-              Gallery
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'users' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('users')}
-            >
-              Users
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'createUser' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('createUser')}
-            >
-              Create User
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'events' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('events')}
-            >
-              Events
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'interests' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium relative`}
               onClick={() => handleTabChange('interests')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'interests'
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
             >
-              Interest Submissions
+              <span>📋</span>
+              <span className="flex-1 text-left">Interests</span>
               {user && interests.filter(i => !i.viewedBy?.includes(user._id)).length > 0 && (
-                <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-xs font-bold text-white bg-red-500 rounded-full">
                   {interests.filter(i => !i.viewedBy?.includes(user._id)).length}
                 </span>
               )}
             </button>
+
+            {/* Attendance with badge */}
             <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'attendance' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium relative`}
               onClick={() => handleTabChange('attendance')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'attendance'
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
             >
-              Event Attendance
+              <span>✅</span>
+              <span className="flex-1 text-left">Attendance</span>
               {user && attendance.filter(a => !a.viewedBy?.includes(user._id)).length > 0 && (
-                <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-xs font-bold text-white bg-red-500 rounded-full">
                   {attendance.filter(a => !a.viewedBy?.includes(user._id)).length}
                 </span>
               )}
             </button>
+
+            {/* Messages with badge */}
             <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'payments' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => setActiveTab('payments')}
-            >
-              Payments
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'regions' 
-                  ? 'border-indigo-500 text-indigo-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
-              onClick={() => navigate('/admin/region-campus')}
-            >
-              Regions & Campuses
-            </button>
-            <button
-              className={`py-4 px-2 sm:px-3 border-b-2 whitespace-nowrap text-xs sm:text-sm ${
-                activeTab === 'contacts'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } font-medium`}
               onClick={() => handleTabChange('contacts')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'contacts'
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
             >
-              Messages {contacts.length > 0 && !contactsViewed && <span className="ml-1 bg-indigo-100 text-indigo-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">{contacts.length}</span>}
+              <span>💬</span>
+              <span className="flex-1 text-left">Messages</span>
+              {contacts.length > 0 && !contactsViewed && (
+                <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 text-xs font-bold text-white bg-green-500 rounded-full">
+                  {contacts.length}
+                </span>
+              )}
             </button>
-          </div>
-          
-          {/* Scroll indicator gradient - visible only on mobile */}
-          <div className="md:hidden absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none"></div>
-        </div>
-      </div>
-      </nav>
-      
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
-        )}
+
+            {/* Regions */}
+            <button
+              onClick={() => navigate('/admin/region-campus')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <span>🗺️</span>
+              <span>Regions & Campuses</span>
+            </button>
+          </nav>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
         
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
@@ -1980,25 +1950,46 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
 
       {/* Contact Messages Tab */}
       {activeTab === 'contacts' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Contact Messages</h3>
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-4 py-4 sm:px-6 bg-gray-50 flex justify-between items-center rounded-t-lg border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-gray-900">Contact Messages</h3>
+              {contacts.length > 0 && !contactsViewed && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+                  {contacts.length} new
+                </span>
+              )}
+            </div>
             <span className="text-sm text-gray-500">{contacts.length} total</span>
           </div>
           {contacts.length === 0 ? (
-            <div className="px-4 py-10 text-center text-gray-500">No messages yet.</div>
+            <div className="px-4 py-16 text-center">
+              <p className="text-4xl mb-3">💬</p>
+              <p className="text-gray-500">No messages yet.</p>
+            </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-100">
               {[...contacts].reverse().map((c) => (
-                <div key={c._id} className="px-4 py-4 sm:px-6">
+                <div key={c._id} className="px-4 py-5 sm:px-6 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">{c.name} {c.phone && <span className="font-normal text-gray-500">· {c.phone}</span>}</p>
-                      <p className="text-sm text-indigo-600">{c.email}</p>
-                      <p className="mt-1 text-sm font-medium text-gray-700">{c.subject}</p>
-                      <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap">{c.message}</p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+                        <p className="text-sm font-semibold text-gray-900">{c.name}</p>
+                        {c.phone && <span className="text-xs text-gray-400">· {c.phone}</span>}
+                        {c.email && <a href={`mailto:${c.email}`} className="text-xs text-indigo-600 hover:underline">{c.email}</a>}
+                      </div>
+                      <p className="text-sm font-medium text-gray-800 mb-1">📌 {c.subject}</p>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{c.message}</p>
                     </div>
-                    <p className="text-xs text-gray-400 whitespace-nowrap">{new Date(c.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <p className="text-xs text-gray-400 whitespace-nowrap">{new Date(c.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                      <button
+                        onClick={() => handleDeleteContact(c._id)}
+                        className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded border border-red-200 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2061,7 +2052,8 @@ const AdminDashboard = () => {  const [stats, setStats] = useState({
         </div>
       )}
       
-    </main>
+        </main>
+      </div>
     {/* Event Modal - placed at the root level outside all tabs */}
       {showModal && selectedEvent && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
