@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Calendar, MapPin, Clock, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import API from '../utils/api';
 import EventDetails from './EventDetails';
 import EventCard from './EventCard';
@@ -141,16 +142,32 @@ const Events = () => {
     return eventDate >= today;
   });
 
-  if (loading) return <div className="text-center py-16">Loading events...</div>;
-  if (error) return <div className="text-center py-16 text-red-600">{error}</div>;
+  if (loading) return (
+    <section className="py-20 bg-white">
+      <div className="max-w-7xl mx-auto px-4 flex justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-indigo-600" />
+      </div>
+    </section>
+  );
+  if (error) return <div className="text-center py-20 text-red-500">{error}</div>;
 
   return (
-    <section className="py-8 bg-gray-50">
+    <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900">Upcoming Events</h2>
-          <p className="mt-2 text-sm text-gray-500">Join our upcoming events</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="text-center mb-14"
+        >
+          <span className="inline-block text-xs font-semibold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-4 py-1.5 rounded-full mb-4">
+            What's On
+          </span>
+          <h2 className="text-3xl md:text-4xl font-bold text-indigo-950 mb-4">Upcoming Events</h2>
+          <div className="w-16 h-1 bg-yellow-400 mx-auto mb-5 rounded-full" />
+          <p className="text-gray-500 max-w-xl mx-auto">Join us at our next gathering — everyone is welcome.</p>
+        </motion.div>
 
         {/* Registration status message */}
         {registrationStatus && (
@@ -164,38 +181,40 @@ const Events = () => {
         )}
 
         {upcomingEvents.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl shadow-sm">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No upcoming events</h3>
-            <p className="mt-1 text-sm text-gray-500">Check back later for new events.</p>
+          <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-indigo-950">No upcoming events</h3>
+            <p className="mt-1 text-sm text-gray-400">Check back soon for new events.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.1 }}
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {upcomingEvents.map(event => (
-              <EventCard
+              <motion.div
                 key={event._id}
-                event={event}
-                user={user}
-                onCheckIn={handleCheckIn}
-                onViewDetails={handleViewDetails}
-                onViewAttendance={handleViewAttendance}
-                onRegister={handleRegister}
-                onGuestRegister={handleGuestRegister}
-              />
+                variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } } }}
+              >
+                <EventCard
+                  event={event}
+                  user={user}
+                  onCheckIn={handleCheckIn}
+                  onViewDetails={handleViewDetails}
+                  onViewAttendance={handleViewAttendance}
+                  onRegister={handleRegister}
+                  onGuestRegister={handleGuestRegister}
+                />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {/* Event Details Modal */}

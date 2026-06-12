@@ -1,13 +1,16 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import Footer from '../components/Footer';
 import About from '../components/About';
 import Events from '../components/Events';
-import Gallery from '../components/Gallery';
+import GalleryPreview from '../components/GalleryPreview';
+import QuoteCarousel from '../components/QuoteCarousel';
+import Testimonials from '../components/Testimonials';
+import FAQAccordion from '../components/FAQAccordion';
+import CTABanner from '../components/CTABanner';
+import Footer from '../components/Footer';
 
 const Index = () => {
-  // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -16,10 +19,14 @@ const Index = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow">
-        <Hero />        
+        <Hero />
         <About />
         <Events />
-        {/* <Gallery /> */}
+        <GalleryPreview />
+        <QuoteCarousel />
+        <Testimonials />
+        <FAQAccordion />
+        <CTABanner />
       </main>
       <Footer />
     </div>
