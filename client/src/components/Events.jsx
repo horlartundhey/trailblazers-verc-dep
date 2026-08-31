@@ -269,7 +269,7 @@ const Events = () => {
                     value={guestFormData.phone}
                     onChange={(e) => setGuestFormData({ ...guestFormData, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+234 XXX XXX XXXX"
+                    placeholder="+2349068298416"
                   />
                 </div>
 
