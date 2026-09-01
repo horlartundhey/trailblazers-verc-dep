@@ -1,25 +1,33 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { getCurrentUser } from './redux/slices/authSlice';
-
-// Pages
-import Login from './components/auth/Login';
-import AdminDashboard from './pages/admin/Dashboard';
-import AttendanceDashboard from './pages/admin/AttendanceDashboard';
-import RegionCampusManagement from './pages/admin/RegionCampusManagement';
-import LeaderDashboard from './pages/leader/Dashboard';
-import MemberDashboard from './pages/member/Dashboard';
-import CompleteRegistration from './pages/member/CompleteRegistration';
 import PrivateRoute from './routes/PrivateRoute';
+
+// Index is the default landing route — keep it eager so the most common
+// visit doesn't pay a lazy-chunk round trip. Everything else loads on demand.
 import Index from './pages/Index';
-import InterestForm from './pages/InterestForm';
-import Events from './pages/Events';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Gallery from './pages/Gallery';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
+
+const Login = lazy(() => import('./components/auth/Login'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AttendanceDashboard = lazy(() => import('./pages/admin/AttendanceDashboard'));
+const RegionCampusManagement = lazy(() => import('./pages/admin/RegionCampusManagement'));
+const LeaderDashboard = lazy(() => import('./pages/leader/Dashboard'));
+const MemberDashboard = lazy(() => import('./pages/member/Dashboard'));
+const CompleteRegistration = lazy(() => import('./pages/member/CompleteRegistration'));
+const InterestForm = lazy(() => import('./pages/InterestForm'));
+const Events = lazy(() => import('./pages/Events'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Gallery = lazy(() => import('./pages/Gallery'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+
+const RouteFallback = () => (
+  <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+  </div>
+);
 
 // Set up application with Redux
 const AppContent = () => {
@@ -74,6 +82,7 @@ const AppContent = () => {
   }
   
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Index />} />
@@ -105,6 +114,7 @@ const AppContent = () => {
       {/* Catch-all route */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </Suspense>
   );
 };
 
