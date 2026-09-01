@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { useState } from 'react';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
+import logo from '../assets/images/logo.png';
 
 const Navbar = () => {
   const { isAuthenticated, user } = useSelector(state => state.auth);
@@ -31,13 +32,14 @@ const Navbar = () => {
           <div className="flex justify-between h-16 items-center">
 
             {/* Brand */}
-            <Link to="/">
-              <motion.span
-                className={`text-xl font-bold tracking-tight transition-colors duration-300 ${scrolled ? 'text-indigo-900' : 'text-white'}`}
-                whileHover={{ scale: 1.02 }}
-              >
-                Trailblazers Nation
-              </motion.span>
+            <Link to="/" className="flex items-center">
+              <motion.img
+                src={logo}
+                alt="Trailblazers Nation"
+                whileHover={{ scale: 1.05 }}
+                className="h-11 w-11 sm:h-12 sm:w-12 rounded-full object-cover shadow-md"
+              />
+              <span className="sr-only">Trailblazers Nation</span>
             </Link>
 
             {/* Desktop Nav */}
