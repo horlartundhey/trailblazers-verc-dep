@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, CalendarX2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import BackButton from '../components/BackButton';
+import PageHeader from '../components/PageHeader';
 import API from '../utils/api';
 import EventDetails from '../components/EventDetails';
 import AttendanceModal from '../components/AttendanceModal';
 import EventCard from '../components/EventCard';
+
+const gridStagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+
+const cardFadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+};
+
+const inputClass =
+  'w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow';
 
 const Events = () => {
   const [events, setEvents] = useState([]);
@@ -161,8 +177,12 @@ const Events = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -179,41 +199,49 @@ const Events = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
+        <PageHeader
+          eyebrow="What's Happening"
+          title="Upcoming Events"
+          subtitle="Join us for worship, fellowship, and community — see what's coming up."
+        />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pb-20">
           <BackButton />
-          <h1 className="text-4xl font-bold text-center mb-8">Upcoming Events</h1>
-      
+
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-red-700">{error}</p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-8">
+          <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          <p>{error}</p>
         </div>
       )}
 
       {upcomingEvents.length === 0 && !loading ? (
-        <p className="text-center text-gray-600">No upcoming events scheduled at the moment.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {upcomingEvents.map((event) => (
-            <EventCard
-              key={event._id}
-              event={event}
-              user={user}
-              onCheckIn={handleCheckIn}
-              onViewDetails={handleViewDetails}
-              onViewAttendance={handleViewAttendance}
-              onGuestRegister={handleGuestRegister}
-            />
-          ))}
+        <div className="text-center py-16 bg-white rounded-2xl shadow-lg shadow-indigo-900/5">
+          <CalendarX2 className="h-10 w-10 text-indigo-200 mx-auto mb-3" />
+          <p className="text-gray-500">No upcoming events scheduled at the moment.</p>
         </div>
+      ) : (
+        <motion.div
+          variants={gridStagger}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
+          {upcomingEvents.map((event) => (
+            <motion.div key={event._id} variants={cardFadeUp}>
+              <EventCard
+                event={event}
+                user={user}
+                onCheckIn={handleCheckIn}
+                onViewDetails={handleViewDetails}
+                onViewAttendance={handleViewAttendance}
+                onGuestRegister={handleGuestRegister}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
       )}
 
       {selectedEvent && (
@@ -242,36 +270,44 @@ const Events = () => {
       )}
 
       {/* Guest Registration Modal */}
-      {showGuestRegistration && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <AnimatePresence>
+        {showGuestRegistration && selectedEvent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            >
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Register Your Attendance</h2>
+                <h2 className="text-xl font-bold text-indigo-950">Register Your Attendance</h2>
                 <button
                   onClick={closeGuestRegistrationModal}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="mb-4">
-                <h3 className="font-semibold text-lg">{selectedEvent.name}</h3>
-                <p className="text-sm text-gray-600">{new Date(selectedEvent.date).toLocaleDateString()}</p>
-                <p className="text-sm text-gray-600">{selectedEvent.location}</p>
+              <div className="mb-5 pb-4 border-b border-gray-100">
+                <h3 className="font-semibold text-lg text-indigo-950">{selectedEvent.name}</h3>
+                <p className="text-sm text-gray-500">{new Date(selectedEvent.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-500">{selectedEvent.location}</p>
               </div>
 
               {guestRegistrationSuccess ? (
-                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-                  <div className="flex items-center">
-                    <svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <p className="text-green-700 font-medium">You have successfully registered for this event, we will be in touch to share more information about the event</p>
-                  </div>
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl">
+                  <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <p className="font-medium">You have successfully registered for this event, we will be in touch to share more information about the event</p>
                 </div>
               ) : (
                 <form onSubmit={handleGuestFormSubmit} className="space-y-4">
@@ -286,7 +322,7 @@ const Events = () => {
                       value={guestFormData.name}
                       onChange={handleGuestFormChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={inputClass}
                       placeholder="Enter your full name"
                     />
                   </div>
@@ -302,7 +338,7 @@ const Events = () => {
                       value={guestFormData.phone}
                       onChange={handleGuestFormChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={inputClass}
                       placeholder="+1 (555) 000-0000"
                     />
                   </div>
@@ -318,7 +354,7 @@ const Events = () => {
                       value={guestFormData.location}
                       onChange={handleGuestFormChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={inputClass}
                       placeholder="Your city or area"
                     />
                   </div>
@@ -333,13 +369,13 @@ const Events = () => {
                       name="invitedBy"
                       value={guestFormData.invitedBy}
                       onChange={handleGuestFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className={inputClass}
                       placeholder="Name of the person who invited you"
                     />
                   </div>
 
                   {error && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
                       <p className="text-red-700 text-sm">{error}</p>
                     </div>
                   )}
@@ -348,17 +384,17 @@ const Events = () => {
                     <button
                       type="button"
                       onClick={closeGuestRegistrationModal}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                      className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={guestRegistrationLoading}
-                      className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${
+                      className={`flex-1 px-4 py-2.5 rounded-full text-white font-semibold transition-colors ${
                         guestRegistrationLoading
                           ? 'bg-indigo-400 cursor-not-allowed'
-                          : 'bg-indigo-600 hover:bg-indigo-700'
+                          : 'bg-indigo-700 hover:bg-indigo-600'
                       }`}
                     >
                       {guestRegistrationLoading ? 'Registering...' : 'Register'}
@@ -367,9 +403,10 @@ const Events = () => {
                 </form>
               )}
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
         </div>
       </main>
       <Footer />
